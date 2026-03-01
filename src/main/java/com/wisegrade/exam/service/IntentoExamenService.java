@@ -33,8 +33,6 @@ import com.wisegrade.exam.repository.PreguntaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -209,7 +207,7 @@ public class IntentoExamenService {
                 ResultadoIntentoResponse resultado = null;
                 List<CorreccionPreguntaResponse> correccion = List.of();
                 if (intento.getEstado() == IntentoEstado.SUBMITTED) {
-                        resultado = calcularResultado(intentoPreguntas);
+                        resultado = ResultadoIntentoCalculator.calcular(intentoPreguntas);
                         correccion = intentoPreguntas.stream()
                                         .map(ip -> {
                                                 RespuestaCorrecta respuestaEstudiante = ip.getRespuesta();
@@ -239,28 +237,6 @@ public class IntentoExamenService {
                                 respuestas,
                                 resultado,
                                 correccion);
-        }
-
-        private static ResultadoIntentoResponse calcularResultado(List<IntentoPregunta> intentoPreguntas) {
-                int total = intentoPreguntas.size();
-                int correctas = 0;
-                for (IntentoPregunta ip : intentoPreguntas) {
-                        RespuestaCorrecta r = ip.getRespuesta();
-                        if (r != null && r == ip.getPregunta().getCorrecta()) {
-                                correctas++;
-                        }
-                }
-
-                BigDecimal notaSobre5;
-                if (total <= 0) {
-                        notaSobre5 = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                } else {
-                        notaSobre5 = BigDecimal.valueOf(correctas)
-                                        .multiply(BigDecimal.valueOf(5))
-                                        .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
-                }
-
-                return new ResultadoIntentoResponse(correctas, total, notaSobre5);
         }
 
         @Transactional
