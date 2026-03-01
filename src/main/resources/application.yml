@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: wisegrade-back
+
+  profiles:
+    active: dev
+
+server:
+  port: 8080
