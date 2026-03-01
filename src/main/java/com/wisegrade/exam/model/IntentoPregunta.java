@@ -59,6 +59,10 @@ public class IntentoPregunta {
         return intento;
     }
 
+    public Long getIntentoId() {
+        return intento == null ? null : intento.getId();
+    }
+
     void setIntento(IntentoExamen intento) {
         this.intento = intento;
     }
