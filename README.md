@@ -34,6 +34,12 @@ Si necesitas crear DB/usuario local, existe un script de ayuda en el workspace:
 - `DB_USER` (default: `wisegrade_app`)
 - `DB_PASSWORD` (requerida)
 
+Tip: también puedes crear `backend/.env.local` (no se sube a git) con:
+
+```bash
+DB_PASSWORD='tu_clave'
+```
+
 CORS (frontend):
 
 - `APP_CORS_ALLOWED_ORIGINS` (default: `http://localhost:5173`)
@@ -73,6 +79,7 @@ Esto crea:
 - Iniciar intento: `POST /api/intentos/iniciar`
 - Enviar intento: `POST /api/intentos/enviar`
 - Detalle de intento: `GET /api/intentos/{intentoId}`
+- Resultados (docente): `GET /api/examenes/resultados?periodoId=...&materiaId=...&momentoId=...&docenteResponsableId=...`
 
 Notas:
 
