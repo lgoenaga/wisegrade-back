@@ -4,6 +4,8 @@ import com.wisegrade.academic.model.Docente;
 import com.wisegrade.academic.model.Estudiante;
 import com.wisegrade.academic.repository.DocenteRepository;
 import com.wisegrade.academic.repository.EstudianteRepository;
+import com.wisegrade.auth.api.dto.AuthBulkDocentesRequest;
+import com.wisegrade.auth.api.dto.AuthBulkDocentesResponse;
 import com.wisegrade.auth.api.dto.AuthBulkEstudiantesRequest;
 import com.wisegrade.auth.api.dto.AuthBulkEstudiantesResponse;
 import com.wisegrade.auth.api.dto.AuthUserCreateRequest;
@@ -126,6 +128,62 @@ public class AuthUserService {
         }
 
         return new AuthBulkEstudiantesResponse(
+                total,
+                considerados,
+                creados,
+                omitidosPorExistente,
+                omitidosPorDocumentoInvalido);
+    }
+
+    @Transactional
+    public AuthBulkDocentesResponse bulkCreateDocenteUsers(AuthBulkDocentesRequest req) {
+        boolean soloActivos = req != null && Boolean.TRUE.equals(req.soloActivos());
+        boolean activoUsuario = req == null || req.activoUsuario() == null || req.activoUsuario();
+        boolean skipExisting = req == null || req.skipExisting() == null || req.skipExisting();
+
+        var docentes = docenteRepository.findAll();
+        int total = docentes.size();
+
+        int considerados = 0;
+        int creados = 0;
+        int omitidosPorExistente = 0;
+        int omitidosPorDocumentoInvalido = 0;
+
+        for (Docente d : docentes) {
+            if (soloActivos && !d.isActivo()) {
+                continue;
+            }
+
+            String documentoRaw = d.getDocumento();
+            String documento = documentoRaw == null ? "" : documentoRaw.trim();
+            if (documento.isBlank()) {
+                omitidosPorDocumentoInvalido++;
+                continue;
+            }
+
+            considerados++;
+
+            if (usuarioRepository.findByDocumento(documento).isPresent()) {
+                if (skipExisting) {
+                    omitidosPorExistente++;
+                    continue;
+                }
+                throw new BadRequestException("Ya existe un usuario con documento: " + documento);
+            }
+
+            // Requisito solicitado: clave = documento (encriptado).
+            String hash = passwordEncoder.encode(documento);
+            usuarioRepository.save(new Usuario(
+                    documento,
+                    hash,
+                    UserRole.DOCENTE,
+                    d.getId(),
+                    null,
+                    activoUsuario));
+            creados++;
+        }
+
+        return new AuthBulkDocentesResponse(
                 total,
                 considerados,
                 creados,

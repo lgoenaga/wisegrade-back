@@ -1,5 +1,7 @@
 package com.wisegrade.auth.api;
 
+import com.wisegrade.auth.api.dto.AuthBulkDocentesRequest;
+import com.wisegrade.auth.api.dto.AuthBulkDocentesResponse;
 import com.wisegrade.auth.api.dto.AuthBulkEstudiantesRequest;
 import com.wisegrade.auth.api.dto.AuthBulkEstudiantesResponse;
 import com.wisegrade.auth.api.dto.AuthLoginRequest;
@@ -98,5 +100,13 @@ public class AuthController {
     public AuthBulkEstudiantesResponse bulkCreateEstudianteUsers(
             @RequestBody(required = false) AuthBulkEstudiantesRequest req) {
         return authUserService.bulkCreateEstudianteUsers(req);
+    }
+
+    @PostMapping("/users/bulk/docentes")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthBulkDocentesResponse bulkCreateDocenteUsers(
+            @RequestBody(required = false) AuthBulkDocentesRequest req) {
+        return authUserService.bulkCreateDocenteUsers(req);
     }
 }
