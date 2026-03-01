@@ -259,6 +259,21 @@ class AcademicApiLocalMysqlSmokeTest {
         assertThat(submitBody2.path("estado").asText()).isEqualTo("SUBMITTED");
         assertThat(submitBody2.path("intentoId").asLong()).isEqualTo(intentoId);
 
+        // Retrieve attempt detail: should come from DB (not local storage)
+        ResponseEntity<String> detailResponse = rest.getForEntity(
+                "/api/intentos/{intentoId}",
+                String.class,
+                intentoId);
+        assertThat(detailResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        JsonNode detailBody = objectMapper.readTree(detailResponse.getBody());
+        assertThat(detailBody.path("intentoId").asLong()).isEqualTo(intentoId);
+        assertThat(detailBody.path("estado").asText()).isEqualTo("SUBMITTED");
+        assertThat(detailBody.path("preguntas").isArray()).isTrue();
+        assertThat(detailBody.path("preguntas").size()).isEqualTo(10);
+        assertThat(detailBody.path("respuestas").isArray()).isTrue();
+        assertThat(detailBody.path("respuestas").size()).isEqualTo(10);
+
         // cannot start a second attempt for the same exam+student
         ResponseEntity<String> startResponse2 = rest.postForEntity(
                 "/api/intentos/iniciar",

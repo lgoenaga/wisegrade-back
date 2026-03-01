@@ -10,11 +10,13 @@ import com.wisegrade.academic.repository.MomentoRepository;
 import com.wisegrade.academic.repository.PeriodoRepository;
 import com.wisegrade.common.BadRequestException;
 import com.wisegrade.common.NotFoundException;
+import com.wisegrade.exam.api.dto.IntentoDetalleResponse;
 import com.wisegrade.exam.api.dto.IntentoEnviarRequest;
 import com.wisegrade.exam.api.dto.IntentoEnviarResponse;
 import com.wisegrade.exam.api.dto.IntentoIniciarRequest;
 import com.wisegrade.exam.api.dto.IntentoIniciarResponse;
 import com.wisegrade.exam.api.dto.PreguntaGeneratedResponse;
+import com.wisegrade.exam.api.dto.RespuestaGuardadaResponse;
 import com.wisegrade.exam.api.dto.RespuestaEnviarRequest;
 import com.wisegrade.exam.model.Examen;
 import com.wisegrade.exam.model.IntentoEstado;
@@ -170,6 +172,46 @@ public class IntentoExamenService {
                                 saved.getStartedAt(),
                                 cantidad,
                                 preguntas);
+        }
+
+        @Transactional(readOnly = true)
+        public IntentoDetalleResponse getDetalle(long intentoId) {
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
+                                .findAllByIntentoIdOrderByOrdenAsc(intento.getId());
+
+                List<PreguntaGeneratedResponse> preguntas = intentoPreguntas.stream()
+                                .map(ip -> {
+                                        Pregunta p = ip.getPregunta();
+                                        return new PreguntaGeneratedResponse(
+                                                        p.getId(),
+                                                        p.getEnunciado(),
+                                                        List.of(p.getOpcionA(), p.getOpcionB(), p.getOpcionC(),
+                                                                        p.getOpcionD()));
+                                })
+                                .toList();
+
+                List<RespuestaGuardadaResponse> respuestas = intentoPreguntas.stream()
+                                .filter(ip -> ip.getRespuesta() != null)
+                                .map(ip -> new RespuestaGuardadaResponse(
+                                                ip.getPregunta().getId(),
+                                                ip.getRespuesta(),
+                                                ip.getRespondedAt()))
+                                .toList();
+
+                return new IntentoDetalleResponse(
+                                intento.getId(),
+                                intento.getExamen().getId(),
+                                intento.getEstudiante().getId(),
+                                intento.getEstado(),
+                                intento.getStartedAt(),
+                                intento.getFirstSubmitAttemptAt(),
+                                intento.getSubmittedAt(),
+                                preguntas.size(),
+                                preguntas,
+                                respuestas);
         }
 
         @Transactional
