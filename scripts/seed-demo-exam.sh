@@ -8,6 +8,9 @@ set -euo pipefail
 #
 # Optional env vars:
 #   API_BASE_URL   (default: http://localhost:8080)
+#   ADMIN_DOCUMENTO (default: ADMIN)
+#   ADMIN_CLAVE     (default: Wisegrade2026)
+#   DEMO_USER_CLAVE (default: Wisegrade2026)
 #   MATERIA_NOMBRE (default: Backend I)
 #   MOMENTO_NOMBRE (default: Momento 1)
 #   PERIODO_ANIO   (default: 2026)
@@ -16,6 +19,9 @@ set -euo pipefail
 #   INTENTO_CANTIDAD (default: 5)
 
 API_BASE_URL="${API_BASE_URL:-http://localhost:8080}"
+ADMIN_DOCUMENTO="${ADMIN_DOCUMENTO:-ADMIN}"
+ADMIN_CLAVE="${ADMIN_CLAVE:-Wisegrade2026}"
+DEMO_USER_CLAVE="${DEMO_USER_CLAVE:-Wisegrade2026}"
 MATERIA_NOMBRE="${MATERIA_NOMBRE:-Backend I}"
 MOMENTO_NOMBRE="${MOMENTO_NOMBRE:-Momento 1}"
 PERIODO_ANIO="${PERIODO_ANIO:-2026}"
@@ -25,18 +31,27 @@ INTENTO_CANTIDAD="${INTENTO_CANTIDAD:-5}"
 
 python3 - <<'PY'
 import json
+import http.cookiejar
 import os
 import time
 import urllib.error
 import urllib.request
 
 BASE = os.environ.get('API_BASE_URL', 'http://localhost:8080').rstrip('/')
+ADMIN_DOCUMENTO = os.environ.get('ADMIN_DOCUMENTO', 'ADMIN')
+ADMIN_CLAVE = os.environ.get('ADMIN_CLAVE', 'Wisegrade2026')
+DEMO_USER_CLAVE = os.environ.get('DEMO_USER_CLAVE', 'Wisegrade2026')
 MATERIA_NOMBRE = os.environ.get('MATERIA_NOMBRE', 'Backend I')
 MOMENTO_NOMBRE = os.environ.get('MOMENTO_NOMBRE', 'Momento 1')
 PERIODO_ANIO = int(os.environ.get('PERIODO_ANIO', '2026'))
 PERIODO_NOMBRE = os.environ.get('PERIODO_NOMBRE', 'Periodo I')
 BANCO_PREGUNTAS = int(os.environ.get('BANCO_PREGUNTAS', '10'))
 INTENTO_CANTIDAD = int(os.environ.get('INTENTO_CANTIDAD', '5'))
+
+
+# Keep a cookie jar so session auth works across requests.
+COOKIE_JAR = http.cookiejar.CookieJar()
+OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(COOKIE_JAR))
 
 
 def http_json(method: str, path: str, payload=None):
@@ -48,7 +63,7 @@ def http_json(method: str, path: str, payload=None):
         headers['Content-Type'] = 'application/json'
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with OPENER.open(req, timeout=8) as resp:
             body = resp.read().decode('utf-8')
             return resp.status, json.loads(body) if body else None
     except urllib.error.HTTPError as e:
@@ -67,6 +82,12 @@ def pick_id(items, pred, label):
         if pred(it):
             return int(it['id'])
     raise RuntimeError(f'No se encontró {label}. Respuesta: {items}')
+
+# Login as admin (session cookie)
+http_json('POST', '/api/auth/login', {
+    'documento': ADMIN_DOCUMENTO,
+    'clave': ADMIN_CLAVE,
+})
 
 
 # Resolve seeded IDs
@@ -102,6 +123,7 @@ _, docente = http_json('POST', '/api/docentes', {
     'activo': True,
 })
 docente_id = int(docente['id'])
+docente_documento = str(docente['documento'])
 
 # Create estudiante
 _, estudiante = http_json('POST', '/api/estudiantes', {
@@ -111,6 +133,26 @@ _, estudiante = http_json('POST', '/api/estudiantes', {
     'activo': True,
 })
 estudiante_id = int(estudiante['id'])
+estudiante_documento = str(estudiante['documento'])
+
+# Create auth users linked to the created personas
+http_json('POST', '/api/auth/users', {
+    'documento': docente_documento,
+    'clave': DEMO_USER_CLAVE,
+    'rol': 'DOCENTE',
+    'docenteId': docente_id,
+    'estudianteId': None,
+    'activo': True,
+})
+
+http_json('POST', '/api/auth/users', {
+    'documento': estudiante_documento,
+    'clave': DEMO_USER_CLAVE,
+    'rol': 'ESTUDIANTE',
+    'docenteId': None,
+    'estudianteId': estudiante_id,
+    'activo': True,
+})
 
 # Associate docente to materia
 http_json('PUT', f'/api/materias/{materia_id}/docentes/{docente_id}')
@@ -155,6 +197,13 @@ print('momentoId=', momento_id)
 print('docenteResponsableId=', docente_id)
 print('estudianteId=', estudiante_id)
 print('cantidad=', INTENTO_CANTIDAD)
+print('--- Credenciales demo ---')
+print('ADMIN_DOCUMENTO=', ADMIN_DOCUMENTO)
+print('ADMIN_CLAVE=', ADMIN_CLAVE)
+print('DOCENTE_DOCUMENTO=', docente_documento)
+print('DEMO_USER_CLAVE=', DEMO_USER_CLAVE)
+print('ESTUDIANTE_DOCUMENTO=', estudiante_documento)
+print('DEMO_USER_CLAVE=', DEMO_USER_CLAVE)
 print('--- Debug ---')
 print('examenId=', int(bank_res.get('examenId')))
 print('intentoId=', int(intento.get('intentoId')))
