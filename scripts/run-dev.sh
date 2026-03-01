@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+on_error() {
+  exit_code=$?
+  echo 1>&2
+  echo "[WiseGrade] Backend no pudo iniciar (exit=$exit_code)." 1>&2
+  echo "Sugerencias rápidas:" 1>&2
+  echo "- Verifica credenciales MySQL (usuario/clave) y permisos." 1>&2
+  echo "- Si tu clave tiene caracteres especiales (ej: '$'), exporta con comillas simples: DB_PASSWORD='...'" 1>&2
+  echo "- Re-ejecuta con stacktrace: mvn -DskipTests spring-boot:run -e" 1>&2
+  echo "- Confirma que tu DB_URL tenga allowPublicKeyRetrieval=true si MySQL lo requiere." 1>&2
+  echo 1>&2
+  exit "$exit_code"
+}
+
+trap on_error ERR
+
 cd "$(dirname "$0")/.."
 
 : "${DB_URL:=jdbc:mysql://localhost:3306/wisegrade?useSSL=false&allowPublicKeyRetrieval=true}"
@@ -14,6 +29,18 @@ if [[ -z "${DB_PASSWORD:-}" ]]; then
 fi
 
 export DB_URL DB_USER
+
+echo "[WiseGrade] DB_URL=$DB_URL" 1>&2
+echo "[WiseGrade] DB_USER=$DB_USER" 1>&2
+
+if [[ "$DB_URL" != *"allowPublicKeyRetrieval="* ]]; then
+  echo "[WiseGrade] Aviso: DB_URL no incluye allowPublicKeyRetrieval=..." 1>&2
+  echo "           Si tu MySQL usa caching_sha2_password sin SSL, agrega allowPublicKeyRetrieval=true." 1>&2
+fi
+
+if [[ "$DB_URL" == *"allowPublicKeyRetrieval=false"* ]]; then
+  echo "[WiseGrade] Aviso: allowPublicKeyRetrieval=false en DB_URL. Si ves 'Public Key Retrieval is not allowed', cámbialo a true." 1>&2
+fi
 
 DEFAULT_JAVA_HOME="/home/soporte/.jdk/jdk-21.0.8"
 
