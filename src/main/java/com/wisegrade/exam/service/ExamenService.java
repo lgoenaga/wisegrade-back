@@ -104,6 +104,8 @@ public class ExamenService {
                     normalize(p.opcionD()),
                     p.correcta());
 
+            pregunta.setExplicacion(normalize(p.explicacion()));
+
             nuevas.add(pregunta);
             existingEnunciados.add(enunciado);
             added++;

@@ -44,6 +44,9 @@ public class Pregunta {
     @Column(name = "correcta", nullable = false, length = 1)
     private RespuestaCorrecta correcta;
 
+    @Column(name = "explicacion", columnDefinition = "TEXT")
+    private String explicacion;
+
     protected Pregunta() {
     }
 
@@ -55,6 +58,10 @@ public class Pregunta {
         this.opcionC = Objects.requireNonNull(opcionC, "opcionC");
         this.opcionD = Objects.requireNonNull(opcionD, "opcionD");
         this.correcta = Objects.requireNonNull(correcta, "correcta");
+    }
+
+    public void setExplicacion(String explicacion) {
+        this.explicacion = explicacion;
     }
 
     public Long getId() {
@@ -91,5 +98,9 @@ public class Pregunta {
 
     public RespuestaCorrecta getCorrecta() {
         return correcta;
+    }
+
+    public String getExplicacion() {
+        return explicacion;
     }
 }

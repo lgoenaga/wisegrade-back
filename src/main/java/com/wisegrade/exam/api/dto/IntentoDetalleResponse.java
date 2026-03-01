@@ -15,5 +15,7 @@ public record IntentoDetalleResponse(
         LocalDateTime submittedAt,
         int cantidad,
         List<PreguntaGeneratedResponse> preguntas,
-        List<RespuestaGuardadaResponse> respuestas) {
+        List<RespuestaGuardadaResponse> respuestas,
+        ResultadoIntentoResponse resultado,
+        List<CorreccionPreguntaResponse> correccion) {
 }

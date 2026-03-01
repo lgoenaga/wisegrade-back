@@ -16,6 +16,8 @@ import com.wisegrade.exam.api.dto.IntentoEnviarResponse;
 import com.wisegrade.exam.api.dto.IntentoIniciarRequest;
 import com.wisegrade.exam.api.dto.IntentoIniciarResponse;
 import com.wisegrade.exam.api.dto.PreguntaGeneratedResponse;
+import com.wisegrade.exam.api.dto.CorreccionPreguntaResponse;
+import com.wisegrade.exam.api.dto.ResultadoIntentoResponse;
 import com.wisegrade.exam.api.dto.RespuestaGuardadaResponse;
 import com.wisegrade.exam.api.dto.RespuestaEnviarRequest;
 import com.wisegrade.exam.model.Examen;
@@ -23,6 +25,7 @@ import com.wisegrade.exam.model.IntentoEstado;
 import com.wisegrade.exam.model.IntentoExamen;
 import com.wisegrade.exam.model.IntentoPregunta;
 import com.wisegrade.exam.model.Pregunta;
+import com.wisegrade.exam.model.RespuestaCorrecta;
 import com.wisegrade.exam.repository.ExamenRepository;
 import com.wisegrade.exam.repository.IntentoExamenRepository;
 import com.wisegrade.exam.repository.IntentoPreguntaRepository;
@@ -30,6 +33,8 @@ import com.wisegrade.exam.repository.PreguntaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -201,6 +206,26 @@ public class IntentoExamenService {
                                                 ip.getRespondedAt()))
                                 .toList();
 
+                ResultadoIntentoResponse resultado = null;
+                List<CorreccionPreguntaResponse> correccion = List.of();
+                if (intento.getEstado() == IntentoEstado.SUBMITTED) {
+                        resultado = calcularResultado(intentoPreguntas);
+                        correccion = intentoPreguntas.stream()
+                                        .map(ip -> {
+                                                RespuestaCorrecta respuestaEstudiante = ip.getRespuesta();
+                                                RespuestaCorrecta respuestaCorrecta = ip.getPregunta().getCorrecta();
+                                                boolean esCorrecta = respuestaEstudiante != null
+                                                                && respuestaEstudiante == respuestaCorrecta;
+                                                return new CorreccionPreguntaResponse(
+                                                                ip.getPregunta().getId(),
+                                                                respuestaEstudiante,
+                                                                respuestaCorrecta,
+                                                                esCorrecta,
+                                                                ip.getPregunta().getExplicacion());
+                                        })
+                                        .toList();
+                }
+
                 return new IntentoDetalleResponse(
                                 intento.getId(),
                                 intento.getExamen().getId(),
@@ -211,7 +236,31 @@ public class IntentoExamenService {
                                 intento.getSubmittedAt(),
                                 preguntas.size(),
                                 preguntas,
-                                respuestas);
+                                respuestas,
+                                resultado,
+                                correccion);
+        }
+
+        private static ResultadoIntentoResponse calcularResultado(List<IntentoPregunta> intentoPreguntas) {
+                int total = intentoPreguntas.size();
+                int correctas = 0;
+                for (IntentoPregunta ip : intentoPreguntas) {
+                        RespuestaCorrecta r = ip.getRespuesta();
+                        if (r != null && r == ip.getPregunta().getCorrecta()) {
+                                correctas++;
+                        }
+                }
+
+                BigDecimal notaSobre5;
+                if (total <= 0) {
+                        notaSobre5 = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                } else {
+                        notaSobre5 = BigDecimal.valueOf(correctas)
+                                        .multiply(BigDecimal.valueOf(5))
+                                        .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+                }
+
+                return new ResultadoIntentoResponse(correctas, total, notaSobre5);
         }
 
         @Transactional

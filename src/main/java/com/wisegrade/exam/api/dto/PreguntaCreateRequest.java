@@ -10,5 +10,6 @@ public record PreguntaCreateRequest(
         @NotBlank String opcionB,
         @NotBlank String opcionC,
         @NotBlank String opcionD,
-        @NotNull RespuestaCorrecta correcta) {
+        @NotNull RespuestaCorrecta correcta,
+        String explicacion) {
 }
