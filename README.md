@@ -2,7 +2,7 @@
 
 Backend en Spring Boot (Java 21) + MySQL + Flyway.
 
-Documentación de snapshot del estado actual: ver `Documents/backend-summary.md`.
+Documentación de snapshot del estado actual: ver `../Documents/backend-summary.md`.
 
 ### Requisitos
 
@@ -69,13 +69,44 @@ Esto crea:
 
 - Docente demo
 - Estudiante demo
+- Usuarios de autenticación para docente/estudiante (tabla `usuarios`)
 - Asociación docente↔materia
 - Banco de preguntas para (periodo/materia/momento/docente)
 - Inicia un intento y te imprime los IDs para pegarlos en el frontend
 
+### Autenticación (sesión) y roles
+
+El backend usa **Spring Security** con **sesión** (cookie `JSESSIONID`).
+
+- Público:
+  - `GET /api/health`
+  - `POST /api/auth/login`
+- Requiere login (cookie de sesión): el resto de endpoints bajo `/api/**`.
+
+Roles:
+
+- **ADMIN**: acceso completo.
+- **DOCENTE**: puede consultar `GET /api/examenes/resultados` (docente fijo por sesión).
+- **ESTUDIANTE**: puede iniciar/ver/enviar intentos (`/api/intentos/*`) solo de su propio estudiante.
+
+Usuario admin (bootstrap en dev):
+
+- Documento: `ADMIN`
+- Clave: `Wisegrade2026`
+
+Se puede configurar con:
+
+- `wisegrade.auth.admin.documento`
+- `wisegrade.auth.admin.password`
+
 ### Endpoints útiles
 
 - Health: `GET /api/health`
+- Auth:
+  - Login: `POST /api/auth/login`
+  - Sesión actual: `GET /api/auth/me`
+  - Logout: `POST /api/auth/logout`
+  - Crear usuarios (ADMIN): `POST /api/auth/users`
 - Iniciar intento: `POST /api/intentos/iniciar`
 - Enviar intento: `POST /api/intentos/enviar`
 - Detalle de intento: `GET /api/intentos/{intentoId}`
