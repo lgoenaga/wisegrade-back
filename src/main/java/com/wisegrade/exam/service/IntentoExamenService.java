@@ -118,7 +118,7 @@ public class IntentoExamenService {
                         IntentoExamen existing = existingOpt.get();
 
                         List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
-                                        .findAllByIntentoIdOrderByOrdenAsc(existing.getId());
+                                        .findAllByIntento_IdOrderByOrdenAsc(existing.getId());
 
                         List<PreguntaGeneratedResponse> preguntas = intentoPreguntas.stream()
                                         .map(ip -> {
@@ -183,7 +183,7 @@ public class IntentoExamenService {
                                 .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
 
                 List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
-                                .findAllByIntentoIdOrderByOrdenAsc(intento.getId());
+                                .findAllByIntento_IdOrderByOrdenAsc(intento.getId());
 
                 List<PreguntaGeneratedResponse> preguntas = intentoPreguntas.stream()
                                 .map(ip -> {
@@ -257,7 +257,7 @@ public class IntentoExamenService {
                 }
 
                 List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
-                                .findAllByIntentoIdOrderByOrdenAsc(intento.getId());
+                                .findAllByIntento_IdOrderByOrdenAsc(intento.getId());
 
                 Map<Long, IntentoPregunta> byPreguntaId = new HashMap<>();
                 for (IntentoPregunta ip : intentoPreguntas) {

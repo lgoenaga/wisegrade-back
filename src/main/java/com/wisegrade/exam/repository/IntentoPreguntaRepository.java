@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface IntentoPreguntaRepository extends JpaRepository<IntentoPregunta, Long> {
-    List<IntentoPregunta> findAllByIntentoIdOrderByOrdenAsc(Long intentoId);
+    List<IntentoPregunta> findAllByIntento_IdOrderByOrdenAsc(Long intentoId);
 
     @Query("""
             select ip
