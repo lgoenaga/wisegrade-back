@@ -1,5 +1,7 @@
 package com.wisegrade.exam.api;
 
+import com.wisegrade.auth.model.UserRole;
+import com.wisegrade.auth.security.AuthPrincipal;
 import com.wisegrade.exam.api.dto.ExamenBankLoadRequest;
 import com.wisegrade.exam.api.dto.ExamenBankLoadResponse;
 import com.wisegrade.exam.api.dto.ExamenGenerateRequest;
@@ -9,6 +11,8 @@ import com.wisegrade.exam.service.ExamenService;
 import com.wisegrade.exam.service.ExamenResultadosService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,24 +34,38 @@ public class ExamenController {
     }
 
     @PostMapping("/banco")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.OK)
     public ExamenBankLoadResponse loadBank(@Valid @RequestBody ExamenBankLoadRequest request) {
         return examenService.loadBank(request);
     }
 
     @PostMapping("/generar")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.OK)
     public ExamenGeneratedResponse generate(@Valid @RequestBody ExamenGenerateRequest request) {
         return examenService.generate(request);
     }
 
     @GetMapping("/resultados")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @ResponseStatus(HttpStatus.OK)
     public ExamenResultadosResponse resultados(
             @RequestParam long periodoId,
             @RequestParam long materiaId,
             @RequestParam long momentoId,
-            @RequestParam long docenteResponsableId) {
+            @RequestParam long docenteResponsableId,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+
+        if (principal != null && principal.getUsuario().getRol() == UserRole.DOCENTE) {
+            Long principalDocenteId = principal.getDocenteId();
+            if (principalDocenteId == null) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Usuario docente sin docenteId asociado");
+            }
+            docenteResponsableId = principalDocenteId;
+        }
+
         return examenResultadosService.getResultados(periodoId, materiaId, momentoId, docenteResponsableId);
     }
 }

@@ -8,6 +8,8 @@ import com.wisegrade.academic.repository.EstudianteRepository;
 import com.wisegrade.academic.repository.MateriaRepository;
 import com.wisegrade.academic.repository.MomentoRepository;
 import com.wisegrade.academic.repository.PeriodoRepository;
+import com.wisegrade.auth.model.UserRole;
+import com.wisegrade.auth.security.AuthPrincipal;
 import com.wisegrade.common.BadRequestException;
 import com.wisegrade.common.NotFoundException;
 import com.wisegrade.exam.api.dto.IntentoDetalleResponse;
@@ -30,6 +32,7 @@ import com.wisegrade.exam.repository.ExamenRepository;
 import com.wisegrade.exam.repository.IntentoExamenRepository;
 import com.wisegrade.exam.repository.IntentoPreguntaRepository;
 import com.wisegrade.exam.repository.PreguntaRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,7 +78,10 @@ public class IntentoExamenService {
         }
 
         @Transactional
-        public IntentoIniciarResponse iniciar(IntentoIniciarRequest request) {
+        public IntentoIniciarResponse iniciar(AuthPrincipal principal, IntentoIniciarRequest request) {
+                UserRole rol = requireRole(principal);
+                long estudianteId = resolveEstudianteIdForIniciar(rol, principal, request.estudianteId());
+
                 int cantidad = request.cantidad() == null ? 10 : request.cantidad();
                 if (cantidad <= 0) {
                         throw new BadRequestException("cantidad must be > 0");
@@ -105,9 +111,9 @@ public class IntentoExamenService {
                                 .orElseThrow(() -> new NotFoundException(
                                                 "Examen not found for (periodoId, materiaId, momentoId, docenteResponsableId)"));
 
-                Estudiante estudiante = estudianteRepository.findById(request.estudianteId())
+                Estudiante estudiante = estudianteRepository.findById(estudianteId)
                                 .orElseThrow(() -> new NotFoundException(
-                                                "Estudiante not found: " + request.estudianteId()));
+                                                "Estudiante not found: " + estudianteId));
 
                 // "iniciar" should be idempotent: if an attempt already exists for (examen,
                 // estudiante),
@@ -178,9 +184,12 @@ public class IntentoExamenService {
         }
 
         @Transactional(readOnly = true)
-        public IntentoDetalleResponse getDetalle(long intentoId) {
+        public IntentoDetalleResponse getDetalle(AuthPrincipal principal, long intentoId) {
+                UserRole rol = requireRole(principal);
                 IntentoExamen intento = intentoExamenRepository.findById(intentoId)
                                 .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanAccessIntento(rol, principal, intento);
 
                 List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
                                 .findAllByIntento_IdOrderByOrdenAsc(intento.getId());
@@ -240,9 +249,12 @@ public class IntentoExamenService {
         }
 
         @Transactional
-        public IntentoEnviarResponse enviar(IntentoEnviarRequest request) {
+        public IntentoEnviarResponse enviar(AuthPrincipal principal, IntentoEnviarRequest request) {
+                UserRole rol = requireRole(principal);
                 IntentoExamen intento = intentoExamenRepository.findById(request.intentoId())
                                 .orElseThrow(() -> new NotFoundException("Intento not found: " + request.intentoId()));
+
+                validateCanAccessIntento(rol, principal, intento);
 
                 LocalDateTime now = LocalDateTime.now();
                 intento.markFirstSubmitAttempt(now);
@@ -286,6 +298,48 @@ public class IntentoExamenService {
                                 intento.getFirstSubmitAttemptAt(),
                                 intento.getSubmittedAt(),
                                 savedAnswers);
+        }
+
+        private UserRole requireRole(AuthPrincipal principal) {
+                if (principal == null || principal.getUsuario() == null || principal.getUsuario().getRol() == null) {
+                        throw new AccessDeniedException("No autenticado");
+                }
+                return principal.getUsuario().getRol();
+        }
+
+        private long resolveEstudianteIdForIniciar(UserRole rol, AuthPrincipal principal, long requestedEstudianteId) {
+                if (rol == UserRole.ADMIN) {
+                        return requestedEstudianteId;
+                }
+
+                if (rol == UserRole.ESTUDIANTE) {
+                        Long principalEstudianteId = principal.getEstudianteId();
+                        if (principalEstudianteId == null) {
+                                throw new AccessDeniedException("Usuario estudiante sin estudianteId asociado");
+                        }
+                        return principalEstudianteId;
+                }
+
+                throw new AccessDeniedException("Rol no autorizado para iniciar intentos");
+        }
+
+        private void validateCanAccessIntento(UserRole rol, AuthPrincipal principal, IntentoExamen intento) {
+                if (rol == UserRole.ADMIN) {
+                        return;
+                }
+
+                if (rol == UserRole.ESTUDIANTE) {
+                        Long principalEstudianteId = principal.getEstudianteId();
+                        if (principalEstudianteId == null) {
+                                throw new AccessDeniedException("Usuario estudiante sin estudianteId asociado");
+                        }
+                        if (!intento.getEstudiante().getId().equals(principalEstudianteId)) {
+                                throw new AccessDeniedException("Intento no pertenece al estudiante autenticado");
+                        }
+                        return;
+                }
+
+                throw new AccessDeniedException("Rol no autorizado para acceder a intentos");
         }
 
         private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {

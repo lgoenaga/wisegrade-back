@@ -7,6 +7,7 @@ import com.wisegrade.academic.service.PeriodoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -33,6 +34,7 @@ public class PeriodoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PeriodoResponse> create(@Valid @RequestBody PeriodoCreateRequest request,
             UriComponentsBuilder ucb) {
         PeriodoResponse created = periodoService.create(request);
@@ -42,11 +44,13 @@ public class PeriodoController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public PeriodoResponse update(@PathVariable long id, @Valid @RequestBody PeriodoUpdateRequest request) {
         return periodoService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {
         periodoService.delete(id);

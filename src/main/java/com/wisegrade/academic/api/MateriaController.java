@@ -8,6 +8,7 @@ import com.wisegrade.academic.service.MateriaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -34,6 +35,7 @@ public class MateriaController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MateriaResponse> create(@Valid @RequestBody MateriaCreateRequest request,
             UriComponentsBuilder ucb) {
         MateriaResponse created = materiaService.create(request);
@@ -43,11 +45,13 @@ public class MateriaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public MateriaResponse update(@PathVariable long id, @Valid @RequestBody MateriaUpdateRequest request) {
         return materiaService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {
         materiaService.delete(id);
@@ -59,11 +63,13 @@ public class MateriaController {
     }
 
     @PutMapping("/{materiaId}/docentes/{docenteId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public MateriaResponse addDocente(@PathVariable long materiaId, @PathVariable long docenteId) {
         return materiaService.addDocente(materiaId, docenteId);
     }
 
     @DeleteMapping("/{materiaId}/docentes/{docenteId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public MateriaResponse removeDocente(@PathVariable long materiaId, @PathVariable long docenteId) {
         return materiaService.removeDocente(materiaId, docenteId);
     }

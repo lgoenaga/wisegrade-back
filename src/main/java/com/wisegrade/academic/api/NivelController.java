@@ -7,6 +7,7 @@ import com.wisegrade.academic.service.NivelService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -33,6 +34,7 @@ public class NivelController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<NivelResponse> create(@Valid @RequestBody NivelCreateRequest request,
             UriComponentsBuilder ucb) {
         NivelResponse created = nivelService.create(request);
@@ -42,11 +44,13 @@ public class NivelController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public NivelResponse update(@PathVariable long id, @Valid @RequestBody NivelUpdateRequest request) {
         return nivelService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {
         nivelService.delete(id);

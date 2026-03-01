@@ -7,6 +7,7 @@ import com.wisegrade.academic.service.MomentoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -33,6 +34,7 @@ public class MomentoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MomentoResponse> create(@Valid @RequestBody MomentoCreateRequest request,
             UriComponentsBuilder ucb) {
         MomentoResponse created = momentoService.create(request);
@@ -42,11 +44,13 @@ public class MomentoController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public MomentoResponse update(@PathVariable long id, @Valid @RequestBody MomentoUpdateRequest request) {
         return momentoService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {
         momentoService.delete(id);

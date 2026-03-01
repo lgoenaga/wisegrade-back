@@ -7,6 +7,7 @@ import com.wisegrade.academic.service.DocenteService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -33,6 +34,7 @@ public class DocenteController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DocenteResponse> create(@Valid @RequestBody DocenteCreateRequest request,
             UriComponentsBuilder ucb) {
         DocenteResponse created = docenteService.create(request);
@@ -42,11 +44,13 @@ public class DocenteController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public DocenteResponse update(@PathVariable long id, @Valid @RequestBody DocenteUpdateRequest request) {
         return docenteService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id) {
         docenteService.delete(id);
