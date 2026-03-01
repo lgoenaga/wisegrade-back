@@ -38,164 +38,193 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class IntentoExamenService {
 
-    private final ExamenRepository examenRepository;
-    private final PreguntaRepository preguntaRepository;
-    private final IntentoExamenRepository intentoExamenRepository;
-    private final IntentoPreguntaRepository intentoPreguntaRepository;
-    private final PeriodoRepository periodoRepository;
-    private final MateriaRepository materiaRepository;
-    private final MomentoRepository momentoRepository;
-    private final DocenteRepository docenteRepository;
-    private final EstudianteRepository estudianteRepository;
+        private final ExamenRepository examenRepository;
+        private final PreguntaRepository preguntaRepository;
+        private final IntentoExamenRepository intentoExamenRepository;
+        private final IntentoPreguntaRepository intentoPreguntaRepository;
+        private final PeriodoRepository periodoRepository;
+        private final MateriaRepository materiaRepository;
+        private final MomentoRepository momentoRepository;
+        private final DocenteRepository docenteRepository;
+        private final EstudianteRepository estudianteRepository;
 
-    public IntentoExamenService(
-            ExamenRepository examenRepository,
-            PreguntaRepository preguntaRepository,
-            IntentoExamenRepository intentoExamenRepository,
-            IntentoPreguntaRepository intentoPreguntaRepository,
-            PeriodoRepository periodoRepository,
-            MateriaRepository materiaRepository,
-            MomentoRepository momentoRepository,
-            DocenteRepository docenteRepository,
-            EstudianteRepository estudianteRepository) {
-        this.examenRepository = examenRepository;
-        this.preguntaRepository = preguntaRepository;
-        this.intentoExamenRepository = intentoExamenRepository;
-        this.intentoPreguntaRepository = intentoPreguntaRepository;
-        this.periodoRepository = periodoRepository;
-        this.materiaRepository = materiaRepository;
-        this.momentoRepository = momentoRepository;
-        this.docenteRepository = docenteRepository;
-        this.estudianteRepository = estudianteRepository;
-    }
-
-    @Transactional
-    public IntentoIniciarResponse iniciar(IntentoIniciarRequest request) {
-        int cantidad = request.cantidad() == null ? 10 : request.cantidad();
-        if (cantidad <= 0) {
-            throw new BadRequestException("cantidad must be > 0");
+        public IntentoExamenService(
+                        ExamenRepository examenRepository,
+                        PreguntaRepository preguntaRepository,
+                        IntentoExamenRepository intentoExamenRepository,
+                        IntentoPreguntaRepository intentoPreguntaRepository,
+                        PeriodoRepository periodoRepository,
+                        MateriaRepository materiaRepository,
+                        MomentoRepository momentoRepository,
+                        DocenteRepository docenteRepository,
+                        EstudianteRepository estudianteRepository) {
+                this.examenRepository = examenRepository;
+                this.preguntaRepository = preguntaRepository;
+                this.intentoExamenRepository = intentoExamenRepository;
+                this.intentoPreguntaRepository = intentoPreguntaRepository;
+                this.periodoRepository = periodoRepository;
+                this.materiaRepository = materiaRepository;
+                this.momentoRepository = momentoRepository;
+                this.docenteRepository = docenteRepository;
+                this.estudianteRepository = estudianteRepository;
         }
 
-        periodoRepository.findById(request.periodoId())
-                .orElseThrow(() -> new NotFoundException("Periodo not found: " + request.periodoId()));
+        @Transactional
+        public IntentoIniciarResponse iniciar(IntentoIniciarRequest request) {
+                int cantidad = request.cantidad() == null ? 10 : request.cantidad();
+                if (cantidad <= 0) {
+                        throw new BadRequestException("cantidad must be > 0");
+                }
 
-        Materia materia = materiaRepository.findById(request.materiaId())
-                .orElseThrow(() -> new NotFoundException("Materia not found: " + request.materiaId()));
+                periodoRepository.findById(request.periodoId())
+                                .orElseThrow(() -> new NotFoundException("Periodo not found: " + request.periodoId()));
 
-        momentoRepository.findById(request.momentoId())
-                .orElseThrow(() -> new NotFoundException("Momento not found: " + request.momentoId()));
+                Materia materia = materiaRepository.findById(request.materiaId())
+                                .orElseThrow(() -> new NotFoundException("Materia not found: " + request.materiaId()));
 
-        Docente docente = docenteRepository.findById(request.docenteResponsableId())
-                .orElseThrow(() -> new NotFoundException("Docente not found: " + request.docenteResponsableId()));
+                momentoRepository.findById(request.momentoId())
+                                .orElseThrow(() -> new NotFoundException("Momento not found: " + request.momentoId()));
 
-        validateDocenteAsociadoAMateria(materia, docente.getId());
+                Docente docente = docenteRepository.findById(request.docenteResponsableId())
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Docente not found: " + request.docenteResponsableId()));
 
-        Examen examen = examenRepository
-                .findByPeriodoIdAndMateriaIdAndMomentoIdAndDocenteResponsableId(
-                        request.periodoId(),
-                        request.materiaId(),
-                        request.momentoId(),
-                        request.docenteResponsableId())
-                .orElseThrow(() -> new NotFoundException(
-                        "Examen not found for (periodoId, materiaId, momentoId, docenteResponsableId)"));
+                validateDocenteAsociadoAMateria(materia, docente.getId());
 
-        Estudiante estudiante = estudianteRepository.findById(request.estudianteId())
-                .orElseThrow(() -> new NotFoundException("Estudiante not found: " + request.estudianteId()));
+                Examen examen = examenRepository
+                                .findByPeriodoIdAndMateriaIdAndMomentoIdAndDocenteResponsableId(
+                                                request.periodoId(),
+                                                request.materiaId(),
+                                                request.momentoId(),
+                                                request.docenteResponsableId())
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Examen not found for (periodoId, materiaId, momentoId, docenteResponsableId)"));
 
-        intentoExamenRepository.findByExamenIdAndEstudianteId(examen.getId(), estudiante.getId())
-                .ifPresent(i -> {
-                    throw new BadRequestException(
-                            "Student already has an attempt for this exam (examenId=" + examen.getId()
-                                    + ", estudianteId=" + estudiante.getId() + ")");
-                });
+                Estudiante estudiante = estudianteRepository.findById(request.estudianteId())
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Estudiante not found: " + request.estudianteId()));
 
-        List<Pregunta> banco = new ArrayList<>(preguntaRepository.findAllByExamenId(examen.getId()));
-        if (banco.size() < cantidad) {
-            throw new BadRequestException(
-                    "Not enough questions in bank: have " + banco.size() + ", need " + cantidad);
+                // "iniciar" should be idempotent: if an attempt already exists for (examen,
+                // estudiante),
+                // return it so the student can resume instead of throwing an error.
+                var existingOpt = intentoExamenRepository.findByExamenIdAndEstudianteId(examen.getId(),
+                                estudiante.getId());
+                if (existingOpt.isPresent()) {
+                        IntentoExamen existing = existingOpt.get();
+
+                        List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
+                                        .findAllByIntentoIdOrderByOrdenAsc(existing.getId());
+
+                        List<PreguntaGeneratedResponse> preguntas = intentoPreguntas.stream()
+                                        .map(ip -> {
+                                                Pregunta p = ip.getPregunta();
+                                                return new PreguntaGeneratedResponse(
+                                                                p.getId(),
+                                                                p.getEnunciado(),
+                                                                List.of(p.getOpcionA(), p.getOpcionB(), p.getOpcionC(),
+                                                                                p.getOpcionD()));
+                                        })
+                                        .toList();
+
+                        return new IntentoIniciarResponse(
+                                        existing.getId(),
+                                        examen.getId(),
+                                        estudiante.getId(),
+                                        existing.getEstado(),
+                                        existing.getStartedAt(),
+                                        preguntas.size(),
+                                        preguntas);
+                }
+
+                List<Pregunta> banco = new ArrayList<>(preguntaRepository.findAllByExamenId(examen.getId()));
+                if (banco.size() < cantidad) {
+                        throw new BadRequestException(
+                                        "Not enough questions in bank: have " + banco.size() + ", need " + cantidad);
+                }
+
+                banco.sort((a, b) -> Long.compare(a.getId(), b.getId()));
+                java.util.Collections.shuffle(banco, ThreadLocalRandom.current());
+                List<Pregunta> seleccion = banco.subList(0, cantidad);
+
+                LocalDateTime now = LocalDateTime.now();
+                IntentoExamen intento = new IntentoExamen(examen, estudiante, now);
+                for (int i = 0; i < seleccion.size(); i++) {
+                        intento.addPregunta(new IntentoPregunta(seleccion.get(i), i + 1));
+                }
+
+                IntentoExamen saved = intentoExamenRepository.save(intento);
+
+                List<PreguntaGeneratedResponse> preguntas = seleccion.stream()
+                                .map(p -> new PreguntaGeneratedResponse(
+                                                p.getId(),
+                                                p.getEnunciado(),
+                                                List.of(p.getOpcionA(), p.getOpcionB(), p.getOpcionC(),
+                                                                p.getOpcionD())))
+                                .toList();
+
+                return new IntentoIniciarResponse(
+                                saved.getId(),
+                                examen.getId(),
+                                estudiante.getId(),
+                                saved.getEstado(),
+                                saved.getStartedAt(),
+                                cantidad,
+                                preguntas);
         }
 
-        banco.sort((a, b) -> Long.compare(a.getId(), b.getId()));
-        java.util.Collections.shuffle(banco, ThreadLocalRandom.current());
-        List<Pregunta> seleccion = banco.subList(0, cantidad);
+        @Transactional
+        public IntentoEnviarResponse enviar(IntentoEnviarRequest request) {
+                IntentoExamen intento = intentoExamenRepository.findById(request.intentoId())
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + request.intentoId()));
 
-        LocalDateTime now = LocalDateTime.now();
-        IntentoExamen intento = new IntentoExamen(examen, estudiante, now);
-        for (int i = 0; i < seleccion.size(); i++) {
-            intento.addPregunta(new IntentoPregunta(seleccion.get(i), i + 1));
+                LocalDateTime now = LocalDateTime.now();
+                intento.markFirstSubmitAttempt(now);
+
+                if (intento.getEstado() == IntentoEstado.SUBMITTED) {
+                        return new IntentoEnviarResponse(
+                                        intento.getId(),
+                                        intento.getEstado(),
+                                        intento.getFirstSubmitAttemptAt(),
+                                        intento.getSubmittedAt(),
+                                        0);
+                }
+
+                List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
+                                .findAllByIntentoIdOrderByOrdenAsc(intento.getId());
+
+                Map<Long, IntentoPregunta> byPreguntaId = new HashMap<>();
+                for (IntentoPregunta ip : intentoPreguntas) {
+                        byPreguntaId.put(ip.getPregunta().getId(), ip);
+                }
+
+                int savedAnswers = 0;
+                for (RespuestaEnviarRequest r : request.respuestas()) {
+                        IntentoPregunta ip = byPreguntaId.get(r.preguntaId());
+                        if (ip == null) {
+                                throw new BadRequestException(
+                                                "Pregunta does not belong to this attempt: preguntaId="
+                                                                + r.preguntaId());
+                        }
+                        ip.responder(r.respuesta(), now);
+                        savedAnswers++;
+                }
+
+                intento.submit(now);
+
+                return new IntentoEnviarResponse(
+                                intento.getId(),
+                                intento.getEstado(),
+                                intento.getFirstSubmitAttemptAt(),
+                                intento.getSubmittedAt(),
+                                savedAnswers);
         }
 
-        IntentoExamen saved = intentoExamenRepository.save(intento);
-
-        List<PreguntaGeneratedResponse> preguntas = seleccion.stream()
-                .map(p -> new PreguntaGeneratedResponse(
-                        p.getId(),
-                        p.getEnunciado(),
-                        List.of(p.getOpcionA(), p.getOpcionB(), p.getOpcionC(), p.getOpcionD())))
-                .toList();
-
-        return new IntentoIniciarResponse(
-                saved.getId(),
-                examen.getId(),
-                estudiante.getId(),
-                saved.getEstado(),
-                saved.getStartedAt(),
-                cantidad,
-                preguntas);
-    }
-
-    @Transactional
-    public IntentoEnviarResponse enviar(IntentoEnviarRequest request) {
-        IntentoExamen intento = intentoExamenRepository.findById(request.intentoId())
-                .orElseThrow(() -> new NotFoundException("Intento not found: " + request.intentoId()));
-
-        LocalDateTime now = LocalDateTime.now();
-        intento.markFirstSubmitAttempt(now);
-
-        if (intento.getEstado() == IntentoEstado.SUBMITTED) {
-            return new IntentoEnviarResponse(
-                    intento.getId(),
-                    intento.getEstado(),
-                    intento.getFirstSubmitAttemptAt(),
-                    intento.getSubmittedAt(),
-                    0);
+        private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {
+                boolean asociado = materia.getDocentes().stream().anyMatch(d -> d.getId().equals(docenteId));
+                if (!asociado) {
+                        throw new BadRequestException(
+                                        "DocenteResponsable must be associated to Materia (materiaId=" + materia.getId()
+                                                        + ", docenteId=" + docenteId + ")");
+                }
         }
-
-        List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
-                .findAllByIntentoIdOrderByOrdenAsc(intento.getId());
-
-        Map<Long, IntentoPregunta> byPreguntaId = new HashMap<>();
-        for (IntentoPregunta ip : intentoPreguntas) {
-            byPreguntaId.put(ip.getPregunta().getId(), ip);
-        }
-
-        int savedAnswers = 0;
-        for (RespuestaEnviarRequest r : request.respuestas()) {
-            IntentoPregunta ip = byPreguntaId.get(r.preguntaId());
-            if (ip == null) {
-                throw new BadRequestException(
-                        "Pregunta does not belong to this attempt: preguntaId=" + r.preguntaId());
-            }
-            ip.responder(r.respuesta(), now);
-            savedAnswers++;
-        }
-
-        intento.submit(now);
-
-        return new IntentoEnviarResponse(
-                intento.getId(),
-                intento.getEstado(),
-                intento.getFirstSubmitAttemptAt(),
-                intento.getSubmittedAt(),
-                savedAnswers);
-    }
-
-    private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {
-        boolean asociado = materia.getDocentes().stream().anyMatch(d -> d.getId().equals(docenteId));
-        if (!asociado) {
-            throw new BadRequestException(
-                    "DocenteResponsable must be associated to Materia (materiaId=" + materia.getId()
-                            + ", docenteId=" + docenteId + ")");
-        }
-    }
 }
