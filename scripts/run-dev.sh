@@ -18,6 +18,16 @@ trap on_error ERR
 
 cd "$(dirname "$0")/.."
 
+# Optional local env file (not committed) for developer convenience.
+# Example contents:
+#   DB_PASSWORD='$$Lagp2026$$'
+if [[ -f .env.local ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env.local
+  set +a
+fi
+
 : "${DB_URL:=jdbc:mysql://localhost:3306/wisegrade?useSSL=false&allowPublicKeyRetrieval=true}"
 : "${DB_USER:=wisegrade_app}"
 
