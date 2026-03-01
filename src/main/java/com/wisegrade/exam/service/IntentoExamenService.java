@@ -198,7 +198,9 @@ public class IntentoExamenService {
                 }
 
                 int savedAnswers = 0;
-                for (RespuestaEnviarRequest r : request.respuestas()) {
+                List<RespuestaEnviarRequest> respuestas = request.respuestas() == null ? List.of()
+                                : request.respuestas();
+                for (RespuestaEnviarRequest r : respuestas) {
                         IntentoPregunta ip = byPreguntaId.get(r.preguntaId());
                         if (ip == null) {
                                 throw new BadRequestException(
