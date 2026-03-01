@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AcademicApiSmokeTest {
 
     @Container
+    @SuppressWarnings("resource")
     static final MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")
             .withDatabaseName("wisegrade")
             .withUsername("wisegrade")
