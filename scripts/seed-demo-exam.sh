@@ -125,6 +125,7 @@ for i in range(1, BANCO_PREGUNTAS + 1):
         'opcionC': 'C',
         'opcionD': 'D',
         'correcta': 'A',
+        'explicacion': 'La respuesta correcta es A (demo). Aquí va la sustentación/definición de por qué A es correcta.',
     })
 
 _, bank_res = http_json('POST', '/api/examenes/banco', {
