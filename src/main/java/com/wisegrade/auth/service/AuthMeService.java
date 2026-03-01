@@ -24,15 +24,17 @@ public class AuthMeService {
         AuthPersonaResponse estudiante = null;
         AuthPersonaResponse docente = null;
 
-        if (principal.getEstudianteId() != null) {
-            Estudiante e = estudianteRepository.findById(principal.getEstudianteId()).orElse(null);
+        Long estudianteId = principal.getEstudianteId();
+        if (estudianteId != null) {
+            Estudiante e = estudianteRepository.findById(estudianteId).orElse(null);
             if (e != null) {
                 estudiante = new AuthPersonaResponse(e.getId(), e.getDocumento(), e.getNombres(), e.getApellidos());
             }
         }
 
-        if (principal.getDocenteId() != null) {
-            Docente d = docenteRepository.findById(principal.getDocenteId()).orElse(null);
+        Long docenteId = principal.getDocenteId();
+        if (docenteId != null) {
+            Docente d = docenteRepository.findById(docenteId).orElse(null);
             if (d != null) {
                 docente = new AuthPersonaResponse(d.getId(), d.getDocumento(), d.getNombres(), d.getApellidos());
             }
