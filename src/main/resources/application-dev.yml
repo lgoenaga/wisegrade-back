@@ -4,9 +4,9 @@ app:
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/wisegrade?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/wisegrade?useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USER:wisegrade_app}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
