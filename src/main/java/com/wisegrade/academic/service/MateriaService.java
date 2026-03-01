@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -43,8 +44,9 @@ public class MateriaService {
 
     @Transactional
     public MateriaResponse create(MateriaCreateRequest request) {
-        Nivel nivel = nivelRepository.findById(request.nivelId())
-                .orElseThrow(() -> new NotFoundException("Nivel not found: " + request.nivelId()));
+        Long nivelId = Objects.requireNonNull(request.nivelId(), "nivelId is required");
+        Nivel nivel = nivelRepository.findById(nivelId)
+                .orElseThrow(() -> new NotFoundException("Nivel not found: " + nivelId));
         Materia saved = materiaRepository.save(new Materia(request.nombre(), nivel));
         return toResponse(saved);
     }
@@ -52,8 +54,9 @@ public class MateriaService {
     @Transactional
     public MateriaResponse update(long id, MateriaUpdateRequest request) {
         Materia materia = getEntity(id);
-        Nivel nivel = nivelRepository.findById(request.nivelId())
-                .orElseThrow(() -> new NotFoundException("Nivel not found: " + request.nivelId()));
+        Long nivelId = Objects.requireNonNull(request.nivelId(), "nivelId is required");
+        Nivel nivel = nivelRepository.findById(nivelId)
+                .orElseThrow(() -> new NotFoundException("Nivel not found: " + nivelId));
         materia.setNombre(request.nombre());
         materia.setNivel(nivel);
         return toResponse(materia);
