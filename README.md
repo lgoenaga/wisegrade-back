@@ -107,6 +107,8 @@ Se puede configurar con:
   - Sesión actual: `GET /api/auth/me`
   - Logout: `POST /api/auth/logout`
   - Crear usuarios (ADMIN): `POST /api/auth/users`
+  - Crear usuarios en bulk desde Docentes (ADMIN): `POST /api/auth/users/bulk/docentes`
+  - Crear usuarios en bulk desde Estudiantes (ADMIN): `POST /api/auth/users/bulk/estudiantes`
 - Iniciar intento: `POST /api/intentos/iniciar`
 - Enviar intento: `POST /api/intentos/enviar`
 - Detalle de intento: `GET /api/intentos/{intentoId}`
@@ -116,6 +118,27 @@ Notas:
 
 - `POST /api/intentos/iniciar` es idempotente por (examen, estudiante): si ya existe un intento, devuelve el existente para reanudar.
 - `POST /api/intentos/enviar` acepta `respuestas` vacías para permitir cierre automático por antitrampa.
+
+#### Bulk de usuarios (ADMIN)
+
+Para crear usuarios (rol + vínculo) de forma masiva a partir de las tablas académicas:
+
+- `POST /api/auth/users/bulk/estudiantes`
+- `POST /api/auth/users/bulk/docentes`
+
+El body es opcional. Si lo envías, soporta:
+
+- `soloActivos` (default `false`): si `true`, solo considera personas activas.
+- `activoUsuario` (default `true`): valor de `activo` en el usuario creado.
+- `skipExisting` (default `true`): si existe usuario con ese `documento`, lo omite.
+
+Ejemplo:
+
+```bash
+curl -i -H 'Content-Type: application/json' \
+  -d '{"soloActivos":false,"activoUsuario":true,"skipExisting":true}' \
+  http://localhost:8080/api/auth/users/bulk/estudiantes
+```
 
 ### Tests
 
