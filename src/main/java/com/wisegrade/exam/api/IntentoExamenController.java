@@ -7,8 +7,12 @@ import com.wisegrade.exam.api.dto.IntentoEnviarResponse;
 import com.wisegrade.exam.api.dto.IntentoIniciarRequest;
 import com.wisegrade.exam.api.dto.IntentoIniciarResponse;
 import com.wisegrade.exam.service.IntentoExamenService;
+import com.wisegrade.exam.service.IntentoPdfExportService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,9 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class IntentoExamenController {
 
     private final IntentoExamenService intentoExamenService;
+    private final IntentoPdfExportService intentoPdfExportService;
 
-    public IntentoExamenController(IntentoExamenService intentoExamenService) {
+    public IntentoExamenController(
+            IntentoExamenService intentoExamenService,
+            IntentoPdfExportService intentoPdfExportService) {
         this.intentoExamenService = intentoExamenService;
+        this.intentoPdfExportService = intentoPdfExportService;
     }
 
     @PostMapping("/iniciar")
@@ -45,6 +53,20 @@ public class IntentoExamenController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable long intentoId) {
         return intentoExamenService.getDetalle(principal, intentoId);
+    }
+
+    @GetMapping(value = "/{intentoId}/export/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
+    public ResponseEntity<byte[]> exportPdf(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable long intentoId) {
+        byte[] pdf = intentoPdfExportService.exportSubmittedIntentoPdf(principal, intentoId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"examen-intento-" + intentoId + ".pdf\"");
+
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 
     @PostMapping("/enviar")
