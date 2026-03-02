@@ -52,7 +52,7 @@ public class SecurityConfig {
 
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(origins);
-        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(true);
 
@@ -64,8 +64,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(c -> {
-            })
+                .cors(c -> {
+                })
                 // SPA + session cookie: simplify first cut by disabling CSRF on the API.
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
