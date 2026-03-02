@@ -50,14 +50,18 @@ public class IntentoPdfExportService {
         Estudiante estudiante = estudianteRepository.findById(detalle.estudianteId()).orElse(null);
 
         Map<Long, CorreccionPreguntaResponse> correccionByPreguntaId = new HashMap<>();
-        for (CorreccionPreguntaResponse c : detalle.correccion()) {
-            correccionByPreguntaId.put(c.preguntaId(), c);
+        if (detalle.correccion() != null) {
+            for (CorreccionPreguntaResponse c : detalle.correccion()) {
+                if (c == null)
+                    continue;
+                correccionByPreguntaId.put(c.preguntaId(), c);
+            }
         }
 
         try (PDDocument doc = new PDDocument()) {
             PdfCursor cursor = new PdfCursor(doc);
 
-            cursor.h1("WiseGrade — Examen");
+            cursor.h1("WiseGrade - Examen");
 
             String estudianteLine = estudiante == null
                     ? ("EstudianteId: " + detalle.estudianteId())
@@ -72,14 +76,16 @@ public class IntentoPdfExportService {
 
             if (detalle.resultado() != null) {
                 cursor.p("Resultado: " + detalle.resultado().correctas() + "/" + detalle.resultado().total()
-                        + " · Nota: " + detalle.resultado().notaSobre5());
+                        + " - Nota: " + detalle.resultado().notaSobre5());
             }
 
             cursor.blank(8);
 
-            List<PreguntaGeneratedResponse> preguntas = detalle.preguntas();
+            List<PreguntaGeneratedResponse> preguntas = detalle.preguntas() == null ? List.of() : detalle.preguntas();
             for (int i = 0; i < preguntas.size(); i++) {
                 PreguntaGeneratedResponse p = preguntas.get(i);
+                if (p == null)
+                    continue;
                 CorreccionPreguntaResponse c = correccionByPreguntaId.get(p.id());
 
                 cursor.h2((i + 1) + ". " + safe(p.enunciado()));
@@ -126,7 +132,11 @@ public class IntentoPdfExportService {
         if (s == null)
             return "";
         // Basic cleanup for PDF text operators.
-        return s.replace("\r", " ").replace("\n", " ").trim();
+        return s
+                .replace("\r", " ")
+                .replace("\n", " ")
+                .replace('\u00A0', ' ')
+                .trim();
     }
 
     private static final class PdfCursor implements AutoCloseable {
@@ -192,7 +202,7 @@ public class IntentoPdfExportService {
         }
 
         private void writeWrapped(String rawText, PDFont font, float fontSize, float leading) throws IOException {
-            String text = rawText == null ? "" : rawText;
+            String text = makeEncodable(rawText, font);
             float width = PAGE_SIZE.getWidth() - 2 * MARGIN;
 
             // Very small paragraphs still require a line.
@@ -207,6 +217,48 @@ public class IntentoPdfExportService {
                 cs.endText();
                 y -= leading;
             }
+        }
+
+        private static String makeEncodable(String rawText, PDFont font) throws IOException {
+            if (rawText == null)
+                return "";
+
+            // Normalize a few common problematic punctuation characters.
+            String text = rawText
+                    .replace("\r", " ")
+                    .replace("\n", " ")
+                    .replace('\u00A0', ' ')
+                    .replace('\u2014', '-') // em dash
+                    .replace('\u2013', '-') // en dash
+                    .replace("\u2026", "...") // ellipsis
+                    .replace('\u00B7', '-'); // middot
+
+            StringBuilder sb = new StringBuilder(text.length());
+            for (int i = 0; i < text.length();) {
+                int cp = text.codePointAt(i);
+                i += Character.charCount(cp);
+
+                if (cp == '\t') {
+                    cp = ' ';
+                }
+
+                // Drop other ASCII control chars.
+                if (cp < 0x20) {
+                    continue;
+                }
+
+                String ch = new String(Character.toChars(cp));
+                try {
+                    // getStringWidth will throw IllegalArgumentException if the font can't encode
+                    // the character.
+                    font.getStringWidth(ch);
+                    sb.append(ch);
+                } catch (IllegalArgumentException e) {
+                    sb.append('?');
+                }
+            }
+
+            return sb.toString().trim();
         }
 
         private static List<String> wrapLine(String text, PDFont font, float fontSize, float maxWidth)
