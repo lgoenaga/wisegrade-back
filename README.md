@@ -112,12 +112,14 @@ Se puede configurar con:
 - Iniciar intento: `POST /api/intentos/iniciar`
 - Enviar intento: `POST /api/intentos/enviar`
 - Detalle de intento: `GET /api/intentos/{intentoId}`
+- Exportar intento a PDF: `GET /api/intentos/{intentoId}/export/pdf`
 - Resultados (docente): `GET /api/examenes/resultados?periodoId=...&materiaId=...&momentoId=...&docenteResponsableId=...`
 
 Notas:
 
 - `POST /api/intentos/iniciar` es idempotente por (examen, estudiante): si ya existe un intento, devuelve el existente para reanudar.
 - `POST /api/intentos/enviar` acepta `respuestas` vacías para permitir cierre automático por antitrampa.
+- `GET /api/intentos/{intentoId}/export/pdf` solo está disponible si el intento está en estado `SUBMITTED`.
 
 #### Bulk de usuarios (ADMIN)
 
