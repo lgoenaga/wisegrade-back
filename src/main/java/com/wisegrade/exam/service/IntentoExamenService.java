@@ -300,6 +300,20 @@ public class IntentoExamenService {
                                 savedAnswers);
         }
 
+        @Transactional
+        public void deleteIntento(AuthPrincipal principal, long intentoId) {
+                UserRole rol = requireRole(principal);
+
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanDeleteIntento(rol, principal, intento);
+
+                // DB foreign key does not declare ON DELETE CASCADE, so delete children first.
+                intentoPreguntaRepository.deleteByIntento_Id(intentoId);
+                intentoExamenRepository.deleteById(intentoId);
+        }
+
         private UserRole requireRole(AuthPrincipal principal) {
                 if (principal == null || principal.getUsuario() == null || principal.getUsuario().getRol() == null) {
                         throw new AccessDeniedException("No autenticado");
@@ -340,6 +354,35 @@ public class IntentoExamenService {
                 }
 
                 throw new AccessDeniedException("Rol no autorizado para acceder a intentos");
+        }
+
+        private void validateCanDeleteIntento(UserRole rol, AuthPrincipal principal, IntentoExamen intento) {
+                if (rol == UserRole.ADMIN) {
+                        return;
+                }
+
+                if (rol == UserRole.DOCENTE) {
+                        if (intento.getEstado() == IntentoEstado.SUBMITTED) {
+                                throw new AccessDeniedException(
+                                                "Solo ADMIN puede eliminar intentos en estado SUBMITTED");
+                        }
+
+                        Long principalDocenteId = principal.getDocenteId();
+                        if (principalDocenteId == null) {
+                                throw new AccessDeniedException("Usuario docente sin docenteId asociado");
+                        }
+
+                        Long docenteResponsableId = intento.getExamen().getDocenteResponsable().getId();
+                        if (!principalDocenteId.equals(docenteResponsableId)) {
+                                throw new AccessDeniedException(
+                                                "Intento no pertenece a un examen del docente autenticado");
+                        }
+
+                        return;
+                }
+
+                // ESTUDIANTE (u otros) nunca pueden eliminar intentos.
+                throw new AccessDeniedException("Rol no autorizado para eliminar intentos");
         }
 
         private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {
