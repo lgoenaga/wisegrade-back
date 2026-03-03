@@ -23,4 +23,16 @@ public interface IntentoExamenRepository extends JpaRepository<IntentoExamen, Lo
     List<IntentoExamen> findAllByExamenIdAndEstadoFetchEstudiante(
             @Param("examenId") Long examenId,
             @Param("estado") IntentoEstado estado);
+
+    @Query("""
+            select i
+            from IntentoExamen i
+            join fetch i.estudiante e
+            where i.examen.id = :examenId
+            and i.estado in :estados
+            order by i.submittedAt asc, i.id asc
+            """)
+    List<IntentoExamen> findAllByExamenIdAndEstadoInFetchEstudiante(
+            @Param("examenId") Long examenId,
+            @Param("estados") List<IntentoEstado> estados);
 }

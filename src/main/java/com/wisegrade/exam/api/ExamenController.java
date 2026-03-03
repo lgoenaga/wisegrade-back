@@ -55,6 +55,7 @@ public class ExamenController {
             @RequestParam long materiaId,
             @RequestParam long momentoId,
             @RequestParam long docenteResponsableId,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInProgress,
             @AuthenticationPrincipal AuthPrincipal principal) {
 
         if (principal != null && principal.getUsuario().getRol() == UserRole.DOCENTE) {
@@ -66,6 +67,7 @@ public class ExamenController {
             docenteResponsableId = principalDocenteId;
         }
 
-        return examenResultadosService.getResultados(periodoId, materiaId, momentoId, docenteResponsableId);
+        return examenResultadosService.getResultados(periodoId, materiaId, momentoId, docenteResponsableId,
+                includeInProgress);
     }
 }

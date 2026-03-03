@@ -31,117 +31,137 @@ import java.util.Map;
 @Service
 public class ExamenResultadosService {
 
-    private final PeriodoRepository periodoRepository;
-    private final MateriaRepository materiaRepository;
-    private final MomentoRepository momentoRepository;
-    private final DocenteRepository docenteRepository;
-    private final ExamenRepository examenRepository;
-    private final IntentoExamenRepository intentoExamenRepository;
-    private final IntentoPreguntaRepository intentoPreguntaRepository;
+        private final PeriodoRepository periodoRepository;
+        private final MateriaRepository materiaRepository;
+        private final MomentoRepository momentoRepository;
+        private final DocenteRepository docenteRepository;
+        private final ExamenRepository examenRepository;
+        private final IntentoExamenRepository intentoExamenRepository;
+        private final IntentoPreguntaRepository intentoPreguntaRepository;
 
-    public ExamenResultadosService(
-            PeriodoRepository periodoRepository,
-            MateriaRepository materiaRepository,
-            MomentoRepository momentoRepository,
-            DocenteRepository docenteRepository,
-            ExamenRepository examenRepository,
-            IntentoExamenRepository intentoExamenRepository,
-            IntentoPreguntaRepository intentoPreguntaRepository) {
-        this.periodoRepository = periodoRepository;
-        this.materiaRepository = materiaRepository;
-        this.momentoRepository = momentoRepository;
-        this.docenteRepository = docenteRepository;
-        this.examenRepository = examenRepository;
-        this.intentoExamenRepository = intentoExamenRepository;
-        this.intentoPreguntaRepository = intentoPreguntaRepository;
-    }
-
-    @Transactional(readOnly = true)
-    public ExamenResultadosResponse getResultados(long periodoId, long materiaId, long momentoId,
-            long docenteResponsableId) {
-
-        periodoRepository.findById(periodoId)
-                .orElseThrow(() -> new NotFoundException("Periodo not found: " + periodoId));
-
-        Materia materia = materiaRepository.findById(materiaId)
-                .orElseThrow(() -> new NotFoundException("Materia not found: " + materiaId));
-
-        momentoRepository.findById(momentoId)
-                .orElseThrow(() -> new NotFoundException("Momento not found: " + momentoId));
-
-        Docente docente = docenteRepository.findById(docenteResponsableId)
-                .orElseThrow(() -> new NotFoundException("Docente not found: " + docenteResponsableId));
-
-        validateDocenteAsociadoAMateria(materia, docente.getId());
-
-        Examen examen = examenRepository
-                .findByPeriodoIdAndMateriaIdAndMomentoIdAndDocenteResponsableId(periodoId, materiaId, momentoId,
-                        docenteResponsableId)
-                .orElseThrow(() -> new NotFoundException(
-                        "Examen not found for (periodoId, materiaId, momentoId, docenteResponsableId)"));
-
-        List<IntentoExamen> intentos = intentoExamenRepository.findAllByExamenIdAndEstadoFetchEstudiante(examen.getId(),
-                IntentoEstado.SUBMITTED);
-
-        if (intentos.isEmpty()) {
-            return new ExamenResultadosResponse(
-                    examen.getId(),
-                    periodoId,
-                    materiaId,
-                    momentoId,
-                    docenteResponsableId,
-                    List.of());
+        public ExamenResultadosService(
+                        PeriodoRepository periodoRepository,
+                        MateriaRepository materiaRepository,
+                        MomentoRepository momentoRepository,
+                        DocenteRepository docenteRepository,
+                        ExamenRepository examenRepository,
+                        IntentoExamenRepository intentoExamenRepository,
+                        IntentoPreguntaRepository intentoPreguntaRepository) {
+                this.periodoRepository = periodoRepository;
+                this.materiaRepository = materiaRepository;
+                this.momentoRepository = momentoRepository;
+                this.docenteRepository = docenteRepository;
+                this.examenRepository = examenRepository;
+                this.intentoExamenRepository = intentoExamenRepository;
+                this.intentoPreguntaRepository = intentoPreguntaRepository;
         }
 
-        List<Long> intentoIds = intentos.stream().map(IntentoExamen::getId).toList();
-        List<IntentoPregunta> allPreguntas = intentoPreguntaRepository
-                .findAllByIntentoIdInFetchPreguntaOrderByIntentoIdAscOrdenAsc(intentoIds);
+        @Transactional(readOnly = true)
+        public ExamenResultadosResponse getResultados(long periodoId, long materiaId, long momentoId,
+                        long docenteResponsableId, boolean includeInProgress) {
 
-        Map<Long, List<IntentoPregunta>> preguntasByIntentoId = new HashMap<>();
-        for (IntentoPregunta ip : allPreguntas) {
-            Long intentoId = ip.getIntentoId();
-            if (intentoId == null) {
-                continue;
-            }
-            preguntasByIntentoId.computeIfAbsent(intentoId, k -> new ArrayList<>()).add(ip);
+                periodoRepository.findById(periodoId)
+                                .orElseThrow(() -> new NotFoundException("Periodo not found: " + periodoId));
+
+                Materia materia = materiaRepository.findById(materiaId)
+                                .orElseThrow(() -> new NotFoundException("Materia not found: " + materiaId));
+
+                momentoRepository.findById(momentoId)
+                                .orElseThrow(() -> new NotFoundException("Momento not found: " + momentoId));
+
+                Docente docente = docenteRepository.findById(docenteResponsableId)
+                                .orElseThrow(() -> new NotFoundException("Docente not found: " + docenteResponsableId));
+
+                validateDocenteAsociadoAMateria(materia, docente.getId());
+
+                Examen examen = examenRepository
+                                .findByPeriodoIdAndMateriaIdAndMomentoIdAndDocenteResponsableId(periodoId, materiaId,
+                                                momentoId,
+                                                docenteResponsableId)
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Examen not found for (periodoId, materiaId, momentoId, docenteResponsableId)"));
+
+                List<IntentoExamen> intentos;
+                if (includeInProgress) {
+                        intentos = intentoExamenRepository.findAllByExamenIdAndEstadoInFetchEstudiante(
+                                        examen.getId(),
+                                        List.of(IntentoEstado.SUBMITTED, IntentoEstado.IN_PROGRESS));
+                } else {
+                        intentos = intentoExamenRepository.findAllByExamenIdAndEstadoFetchEstudiante(
+                                        examen.getId(),
+                                        IntentoEstado.SUBMITTED);
+                }
+
+                if (intentos.isEmpty()) {
+                        return new ExamenResultadosResponse(
+                                        examen.getId(),
+                                        periodoId,
+                                        materiaId,
+                                        momentoId,
+                                        docenteResponsableId,
+                                        List.of());
+                }
+
+                Map<Long, List<IntentoPregunta>> preguntasByIntentoId = new HashMap<>();
+                List<Long> submittedIntentoIds = intentos.stream()
+                                .filter(i -> i.getEstado() == IntentoEstado.SUBMITTED)
+                                .map(IntentoExamen::getId)
+                                .toList();
+                if (!submittedIntentoIds.isEmpty()) {
+                        List<IntentoPregunta> allPreguntas = intentoPreguntaRepository
+                                        .findAllByIntentoIdInFetchPreguntaOrderByIntentoIdAscOrdenAsc(
+                                                        submittedIntentoIds);
+
+                        for (IntentoPregunta ip : allPreguntas) {
+                                Long intentoId = ip.getIntentoId();
+                                if (intentoId == null) {
+                                        continue;
+                                }
+                                preguntasByIntentoId.computeIfAbsent(intentoId, k -> new ArrayList<>()).add(ip);
+                        }
+                }
+
+                List<ExamenResultadoFilaResponse> filas = intentos.stream()
+                                .map(i -> {
+                                        Estudiante e = i.getEstudiante();
+                                        EstudianteResumenResponse estudiante = new EstudianteResumenResponse(
+                                                        e.getId(),
+                                                        e.getNombres(),
+                                                        e.getApellidos(),
+                                                        e.getDocumento());
+
+                                        List<IntentoPregunta> ips = preguntasByIntentoId.getOrDefault(i.getId(),
+                                                        List.of());
+                                        ResultadoIntentoResponse resultado = null;
+                                        if (i.getEstado() == IntentoEstado.SUBMITTED) {
+                                                resultado = ResultadoIntentoCalculator.calcular(ips);
+                                        }
+
+                                        return new ExamenResultadoFilaResponse(
+                                                        i.getId(),
+                                                        i.getEstado(),
+                                                        estudiante,
+                                                        i.getStartedAt(),
+                                                        i.getSubmittedAt(),
+                                                        resultado);
+                                })
+                                .toList();
+
+                return new ExamenResultadosResponse(
+                                examen.getId(),
+                                periodoId,
+                                materiaId,
+                                momentoId,
+                                docenteResponsableId,
+                                filas);
         }
 
-        List<ExamenResultadoFilaResponse> filas = intentos.stream()
-                .map(i -> {
-                    Estudiante e = i.getEstudiante();
-                    EstudianteResumenResponse estudiante = new EstudianteResumenResponse(
-                            e.getId(),
-                            e.getNombres(),
-                            e.getApellidos(),
-                            e.getDocumento());
-
-                    List<IntentoPregunta> ips = preguntasByIntentoId.getOrDefault(i.getId(), List.of());
-                    ResultadoIntentoResponse resultado = ResultadoIntentoCalculator.calcular(ips);
-
-                    return new ExamenResultadoFilaResponse(
-                            i.getId(),
-                            estudiante,
-                            i.getStartedAt(),
-                            i.getSubmittedAt(),
-                            resultado);
-                })
-                .toList();
-
-        return new ExamenResultadosResponse(
-                examen.getId(),
-                periodoId,
-                materiaId,
-                momentoId,
-                docenteResponsableId,
-                filas);
-    }
-
-    private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {
-        boolean asociado = materia.getDocentes().stream().anyMatch(d -> d.getId().equals(docenteId));
-        if (!asociado) {
-            throw new BadRequestException(
-                    "DocenteResponsable must be associated to Materia (materiaId=" + materia.getId()
-                            + ", docenteId=" + docenteId + ")");
+        private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {
+                boolean asociado = materia.getDocentes().stream().anyMatch(d -> d.getId().equals(docenteId));
+                if (!asociado) {
+                        throw new BadRequestException(
+                                        "DocenteResponsable must be associated to Materia (materiaId=" + materia.getId()
+                                                        + ", docenteId=" + docenteId + ")");
+                }
         }
-    }
 }
