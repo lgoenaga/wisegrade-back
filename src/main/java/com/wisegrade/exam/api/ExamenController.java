@@ -34,9 +34,26 @@ public class ExamenController {
     }
 
     @PostMapping("/banco")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @ResponseStatus(HttpStatus.OK)
-    public ExamenBankLoadResponse loadBank(@Valid @RequestBody ExamenBankLoadRequest request) {
+    public ExamenBankLoadResponse loadBank(
+            @Valid @RequestBody ExamenBankLoadRequest request,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+
+        if (principal != null && principal.getUsuario().getRol() == UserRole.DOCENTE) {
+            Long principalDocenteId = principal.getDocenteId();
+            if (principalDocenteId == null) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Usuario docente sin docenteId asociado");
+            }
+            request = new ExamenBankLoadRequest(
+                    request.periodoId(),
+                    request.materiaId(),
+                    request.momentoId(),
+                    principalDocenteId,
+                    request.preguntas());
+        }
+
         return examenService.loadBank(request);
     }
 
