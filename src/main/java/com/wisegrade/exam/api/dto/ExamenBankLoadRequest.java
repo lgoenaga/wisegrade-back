@@ -1,5 +1,6 @@
 package com.wisegrade.exam.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -7,9 +8,10 @@ import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
 public record ExamenBankLoadRequest(
-        @Min(1) long periodoId,
-        @Min(1) long materiaId,
-        @Min(1) long momentoId,
-        @Min(1) long docenteResponsableId,
-        @NotEmpty @Valid List<PreguntaCreateRequest> preguntas) {
+                @Min(1) @JsonAlias({
+                                "periodo_id" }) long periodoId,
+                @Min(1) @JsonAlias({ "materia_id" }) long materiaId,
+                @Min(1) @JsonAlias({ "momento_id" }) long momentoId,
+                @Min(1) @JsonAlias({ "docente_responsable_id" }) long docenteResponsableId,
+                @NotEmpty @Valid List<PreguntaCreateRequest> preguntas) {
 }
