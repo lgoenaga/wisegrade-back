@@ -4,6 +4,8 @@ import com.wisegrade.auth.model.UserRole;
 import com.wisegrade.auth.security.AuthPrincipal;
 import com.wisegrade.exam.api.dto.ExamenBankLoadRequest;
 import com.wisegrade.exam.api.dto.ExamenBankLoadResponse;
+import com.wisegrade.exam.api.dto.ExamenEnsureRequest;
+import com.wisegrade.exam.api.dto.ExamenEnsureResponse;
 import com.wisegrade.exam.api.dto.ExamenGenerateRequest;
 import com.wisegrade.exam.api.dto.ExamenGeneratedResponse;
 import com.wisegrade.exam.api.dto.ExamenResultadosResponse;
@@ -55,6 +57,29 @@ public class ExamenController {
         }
 
         return examenService.loadBank(request);
+    }
+
+    @PostMapping("/asegurar")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public ExamenEnsureResponse asegurar(
+            @Valid @RequestBody ExamenEnsureRequest request,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+
+        if (principal != null && principal.getUsuario().getRol() == UserRole.DOCENTE) {
+            Long principalDocenteId = principal.getDocenteId();
+            if (principalDocenteId == null) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Usuario docente sin docenteId asociado");
+            }
+            request = new ExamenEnsureRequest(
+                    request.periodoId(),
+                    request.materiaId(),
+                    request.momentoId(),
+                    principalDocenteId);
+        }
+
+        return examenService.ensureExamen(request);
     }
 
     @PostMapping("/generar")
