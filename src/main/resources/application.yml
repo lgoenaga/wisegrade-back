@@ -10,3 +10,7 @@ server:
   servlet:
     session:
       timeout: ${APP_SESSION_TIMEOUT:180m}
+
+app:
+  exam:
+    duration-minutes: ${APP_EXAM_DURATION_MINUTES:30}

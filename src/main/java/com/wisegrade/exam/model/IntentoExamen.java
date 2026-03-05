@@ -46,11 +46,29 @@ public class IntentoExamen {
     @Column(name = "started_at", nullable = false)
     private LocalDateTime startedAt;
 
+    @Column(name = "deadline_at")
+    private LocalDateTime deadlineAt;
+
     @Column(name = "first_submit_attempt_at")
     private LocalDateTime firstSubmitAttemptAt;
 
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
+
+    @Column(name = "blocked_at")
+    private LocalDateTime blockedAt;
+
+    @Column(name = "block_reason", length = 255)
+    private String blockReason;
+
+    @Column(name = "reopened_at")
+    private LocalDateTime reopenedAt;
+
+    @Column(name = "reopen_count", nullable = false)
+    private int reopenCount;
+
+    @Column(name = "extra_minutes_total", nullable = false)
+    private int extraMinutesTotal;
 
     @OneToMany(mappedBy = "intento", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<IntentoPregunta> preguntas = new LinkedHashSet<>();
@@ -58,11 +76,14 @@ public class IntentoExamen {
     protected IntentoExamen() {
     }
 
-    public IntentoExamen(Examen examen, Estudiante estudiante, LocalDateTime startedAt) {
+    public IntentoExamen(Examen examen, Estudiante estudiante, LocalDateTime startedAt, LocalDateTime deadlineAt) {
         this.examen = Objects.requireNonNull(examen, "examen");
         this.estudiante = Objects.requireNonNull(estudiante, "estudiante");
         this.startedAt = Objects.requireNonNull(startedAt, "startedAt");
+        this.deadlineAt = Objects.requireNonNull(deadlineAt, "deadlineAt");
         this.estado = IntentoEstado.IN_PROGRESS;
+        this.reopenCount = 0;
+        this.extraMinutesTotal = 0;
     }
 
     public Long getId() {
@@ -85,12 +106,36 @@ public class IntentoExamen {
         return startedAt;
     }
 
+    public LocalDateTime getDeadlineAt() {
+        return deadlineAt;
+    }
+
     public LocalDateTime getFirstSubmitAttemptAt() {
         return firstSubmitAttemptAt;
     }
 
     public LocalDateTime getSubmittedAt() {
         return submittedAt;
+    }
+
+    public LocalDateTime getBlockedAt() {
+        return blockedAt;
+    }
+
+    public String getBlockReason() {
+        return blockReason;
+    }
+
+    public LocalDateTime getReopenedAt() {
+        return reopenedAt;
+    }
+
+    public int getReopenCount() {
+        return reopenCount;
+    }
+
+    public int getExtraMinutesTotal() {
+        return extraMinutesTotal;
     }
 
     public Set<IntentoPregunta> getPreguntas() {
@@ -106,6 +151,49 @@ public class IntentoExamen {
     public void markFirstSubmitAttempt(LocalDateTime now) {
         if (this.firstSubmitAttemptAt == null) {
             this.firstSubmitAttemptAt = Objects.requireNonNull(now, "now");
+        }
+    }
+
+    public void ensureDeadline(LocalDateTime deadlineAt) {
+        if (this.deadlineAt == null) {
+            this.deadlineAt = Objects.requireNonNull(deadlineAt, "deadlineAt");
+        }
+    }
+
+    public void block(LocalDateTime now, String reason) {
+        Objects.requireNonNull(now, "now");
+        if (this.estado == IntentoEstado.SUBMITTED) {
+            return;
+        }
+        if (this.estado != IntentoEstado.BLOCKED) {
+            this.estado = IntentoEstado.BLOCKED;
+        }
+        if (this.blockedAt == null) {
+            this.blockedAt = now;
+        }
+        if (this.blockReason == null || this.blockReason.isBlank()) {
+            this.blockReason = reason;
+        }
+    }
+
+    public void reopen(LocalDateTime now, int extraMinutes) {
+        Objects.requireNonNull(now, "now");
+        if (extraMinutes <= 0) {
+            throw new IllegalArgumentException("extraMinutes must be > 0");
+        }
+        if (this.estado != IntentoEstado.BLOCKED) {
+            throw new IllegalStateException("Attempt is not BLOCKED");
+        }
+        if (this.reopenCount >= 1) {
+            throw new IllegalStateException("Attempt was already reopened");
+        }
+
+        this.estado = IntentoEstado.IN_PROGRESS;
+        this.reopenedAt = now;
+        this.reopenCount = this.reopenCount + 1;
+        this.extraMinutesTotal = this.extraMinutesTotal + extraMinutes;
+        if (this.deadlineAt != null) {
+            this.deadlineAt = this.deadlineAt.plusMinutes(extraMinutes);
         }
     }
 

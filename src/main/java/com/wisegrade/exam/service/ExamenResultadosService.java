@@ -85,7 +85,8 @@ public class ExamenResultadosService {
                 if (includeInProgress) {
                         intentos = intentoExamenRepository.findAllByExamenIdAndEstadoInFetchEstudiante(
                                         examen.getId(),
-                                        List.of(IntentoEstado.SUBMITTED, IntentoEstado.IN_PROGRESS));
+                                        List.of(IntentoEstado.SUBMITTED, IntentoEstado.IN_PROGRESS,
+                                                        IntentoEstado.BLOCKED));
                 } else {
                         intentos = intentoExamenRepository.findAllByExamenIdAndEstadoFetchEstudiante(
                                         examen.getId(),
@@ -142,6 +143,10 @@ public class ExamenResultadosService {
                                                         i.getEstado(),
                                                         estudiante,
                                                         i.getStartedAt(),
+                                                        i.getDeadlineAt(),
+                                                        i.getBlockedAt(),
+                                                        i.getReopenCount(),
+                                                        i.getExtraMinutesTotal(),
                                                         i.getSubmittedAt(),
                                                         resultado);
                                 })

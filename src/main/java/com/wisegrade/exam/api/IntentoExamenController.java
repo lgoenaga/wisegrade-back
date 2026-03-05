@@ -1,11 +1,17 @@
 package com.wisegrade.exam.api;
 
 import com.wisegrade.auth.security.AuthPrincipal;
+import com.wisegrade.exam.api.dto.IntentoBlockRequest;
+import com.wisegrade.exam.api.dto.IntentoBlockResponse;
 import com.wisegrade.exam.api.dto.IntentoDetalleResponse;
 import com.wisegrade.exam.api.dto.IntentoEnviarRequest;
 import com.wisegrade.exam.api.dto.IntentoEnviarResponse;
+import com.wisegrade.exam.api.dto.IntentoGuardarRequest;
+import com.wisegrade.exam.api.dto.IntentoGuardarResponse;
 import com.wisegrade.exam.api.dto.IntentoIniciarRequest;
 import com.wisegrade.exam.api.dto.IntentoIniciarResponse;
+import com.wisegrade.exam.api.dto.IntentoReabrirRequest;
+import com.wisegrade.exam.api.dto.IntentoReabrirResponse;
 import com.wisegrade.exam.service.IntentoExamenService;
 import com.wisegrade.exam.service.IntentoPdfExportService;
 import jakarta.validation.Valid;
@@ -77,6 +83,45 @@ public class IntentoExamenController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody IntentoEnviarRequest request) {
         return intentoExamenService.enviar(principal, request);
+    }
+
+    @PostMapping("/{intentoId}/guardar")
+    @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public IntentoGuardarResponse guardar(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable long intentoId,
+            @Valid @RequestBody IntentoGuardarRequest request) {
+        return intentoExamenService.guardarParcial(principal, intentoId, request);
+    }
+
+    @PostMapping("/{intentoId}/anticheat/block")
+    @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public IntentoBlockResponse block(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable long intentoId,
+            @RequestBody IntentoBlockRequest request) {
+        return intentoExamenService.blockAntiCheat(principal, intentoId, request);
+    }
+
+    @PostMapping("/{intentoId}/reabrir")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public IntentoReabrirResponse reabrir(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable long intentoId,
+            @Valid @RequestBody IntentoReabrirRequest request) {
+        return intentoExamenService.reabrir(principal, intentoId, request);
+    }
+
+    @PostMapping("/{intentoId}/force-submit")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public IntentoEnviarResponse forceSubmit(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable long intentoId) {
+        return intentoExamenService.forceSubmit(principal, intentoId);
     }
 
     @DeleteMapping("/{intentoId}")

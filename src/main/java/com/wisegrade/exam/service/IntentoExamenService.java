@@ -15,8 +15,14 @@ import com.wisegrade.common.NotFoundException;
 import com.wisegrade.exam.api.dto.IntentoDetalleResponse;
 import com.wisegrade.exam.api.dto.IntentoEnviarRequest;
 import com.wisegrade.exam.api.dto.IntentoEnviarResponse;
+import com.wisegrade.exam.api.dto.IntentoBlockRequest;
+import com.wisegrade.exam.api.dto.IntentoBlockResponse;
+import com.wisegrade.exam.api.dto.IntentoGuardarRequest;
+import com.wisegrade.exam.api.dto.IntentoGuardarResponse;
 import com.wisegrade.exam.api.dto.IntentoIniciarRequest;
 import com.wisegrade.exam.api.dto.IntentoIniciarResponse;
+import com.wisegrade.exam.api.dto.IntentoReabrirRequest;
+import com.wisegrade.exam.api.dto.IntentoReabrirResponse;
 import com.wisegrade.exam.api.dto.PreguntaGeneratedResponse;
 import com.wisegrade.exam.api.dto.CorreccionPreguntaResponse;
 import com.wisegrade.exam.api.dto.ResultadoIntentoResponse;
@@ -32,6 +38,7 @@ import com.wisegrade.exam.repository.ExamenRepository;
 import com.wisegrade.exam.repository.IntentoExamenRepository;
 import com.wisegrade.exam.repository.IntentoPreguntaRepository;
 import com.wisegrade.exam.repository.PreguntaRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +63,8 @@ public class IntentoExamenService {
         private final DocenteRepository docenteRepository;
         private final EstudianteRepository estudianteRepository;
 
+        private final int examDurationMinutes;
+
         public IntentoExamenService(
                         ExamenRepository examenRepository,
                         PreguntaRepository preguntaRepository,
@@ -65,7 +74,8 @@ public class IntentoExamenService {
                         MateriaRepository materiaRepository,
                         MomentoRepository momentoRepository,
                         DocenteRepository docenteRepository,
-                        EstudianteRepository estudianteRepository) {
+                        EstudianteRepository estudianteRepository,
+                        @Value("${app.exam.duration-minutes:30}") int examDurationMinutes) {
                 this.examenRepository = examenRepository;
                 this.preguntaRepository = preguntaRepository;
                 this.intentoExamenRepository = intentoExamenRepository;
@@ -75,6 +85,8 @@ public class IntentoExamenService {
                 this.momentoRepository = momentoRepository;
                 this.docenteRepository = docenteRepository;
                 this.estudianteRepository = estudianteRepository;
+
+                this.examDurationMinutes = examDurationMinutes > 0 ? examDurationMinutes : 30;
         }
 
         @Transactional
@@ -123,6 +135,9 @@ public class IntentoExamenService {
                 if (existingOpt.isPresent()) {
                         IntentoExamen existing = existingOpt.get();
 
+                        // Backfill deadline for legacy rows (should be rare once V6 is applied).
+                        existing.ensureDeadline(existing.getStartedAt().plusMinutes(examDurationMinutes));
+
                         List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
                                         .findAllByIntento_IdOrderByOrdenAsc(existing.getId());
 
@@ -143,6 +158,10 @@ public class IntentoExamenService {
                                         estudiante.getId(),
                                         existing.getEstado(),
                                         existing.getStartedAt(),
+                                        existing.getDeadlineAt(),
+                                        existing.getBlockedAt(),
+                                        existing.getReopenCount(),
+                                        existing.getExtraMinutesTotal(),
                                         preguntas.size(),
                                         preguntas);
                 }
@@ -158,7 +177,8 @@ public class IntentoExamenService {
                 List<Pregunta> seleccion = banco.subList(0, cantidad);
 
                 LocalDateTime now = LocalDateTime.now();
-                IntentoExamen intento = new IntentoExamen(examen, estudiante, now);
+                LocalDateTime deadlineAt = now.plusMinutes(examDurationMinutes);
+                IntentoExamen intento = new IntentoExamen(examen, estudiante, now, deadlineAt);
                 for (int i = 0; i < seleccion.size(); i++) {
                         intento.addPregunta(new IntentoPregunta(seleccion.get(i), i + 1));
                 }
@@ -179,6 +199,10 @@ public class IntentoExamenService {
                                 estudiante.getId(),
                                 saved.getEstado(),
                                 saved.getStartedAt(),
+                                saved.getDeadlineAt(),
+                                saved.getBlockedAt(),
+                                saved.getReopenCount(),
+                                saved.getExtraMinutesTotal(),
                                 cantidad,
                                 preguntas);
         }
@@ -190,6 +214,8 @@ public class IntentoExamenService {
                                 .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
 
                 validateCanAccessIntento(rol, principal, intento);
+
+                intento.ensureDeadline(intento.getStartedAt().plusMinutes(examDurationMinutes));
 
                 List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
                                 .findAllByIntento_IdOrderByOrdenAsc(intento.getId());
@@ -239,8 +265,12 @@ public class IntentoExamenService {
                                 intento.getEstudiante().getId(),
                                 intento.getEstado(),
                                 intento.getStartedAt(),
+                                intento.getDeadlineAt(),
                                 intento.getFirstSubmitAttemptAt(),
                                 intento.getSubmittedAt(),
+                                intento.getBlockedAt(),
+                                intento.getReopenCount(),
+                                intento.getExtraMinutesTotal(),
                                 preguntas.size(),
                                 preguntas,
                                 respuestas,
@@ -266,6 +296,10 @@ public class IntentoExamenService {
                                         intento.getFirstSubmitAttemptAt(),
                                         intento.getSubmittedAt(),
                                         0);
+                }
+
+                if (intento.getEstado() == IntentoEstado.BLOCKED) {
+                        throw new BadRequestException("Intento bloqueado por antitrampa");
                 }
 
                 List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
@@ -298,6 +332,143 @@ public class IntentoExamenService {
                                 intento.getFirstSubmitAttemptAt(),
                                 intento.getSubmittedAt(),
                                 savedAnswers);
+        }
+
+        @Transactional
+        public IntentoGuardarResponse guardarParcial(AuthPrincipal principal, long intentoId,
+                        IntentoGuardarRequest request) {
+                UserRole rol = requireRole(principal);
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanAccessIntento(rol, principal, intento);
+                intento.ensureDeadline(intento.getStartedAt().plusMinutes(examDurationMinutes));
+
+                if (intento.getEstado() == IntentoEstado.SUBMITTED) {
+                        return new IntentoGuardarResponse(
+                                        intento.getId(),
+                                        intento.getEstado(),
+                                        0,
+                                        intento.getDeadlineAt(),
+                                        intento.getBlockedAt());
+                }
+
+                if (intento.getEstado() == IntentoEstado.BLOCKED) {
+                        return new IntentoGuardarResponse(
+                                        intento.getId(),
+                                        intento.getEstado(),
+                                        0,
+                                        intento.getDeadlineAt(),
+                                        intento.getBlockedAt());
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+
+                List<IntentoPregunta> intentoPreguntas = intentoPreguntaRepository
+                                .findAllByIntento_IdOrderByOrdenAsc(intento.getId());
+
+                Map<Long, IntentoPregunta> byPreguntaId = new HashMap<>();
+                for (IntentoPregunta ip : intentoPreguntas) {
+                        byPreguntaId.put(ip.getPregunta().getId(), ip);
+                }
+
+                int savedAnswers = 0;
+                List<RespuestaEnviarRequest> respuestas = request == null || request.respuestas() == null ? List.of()
+                                : request.respuestas();
+                for (RespuestaEnviarRequest r : respuestas) {
+                        IntentoPregunta ip = byPreguntaId.get(r.preguntaId());
+                        if (ip == null) {
+                                throw new BadRequestException(
+                                                "Pregunta does not belong to this attempt: preguntaId="
+                                                                + r.preguntaId());
+                        }
+                        ip.responder(r.respuesta(), now);
+                        savedAnswers++;
+                }
+
+                return new IntentoGuardarResponse(
+                                intento.getId(),
+                                intento.getEstado(),
+                                savedAnswers,
+                                intento.getDeadlineAt(),
+                                intento.getBlockedAt());
+        }
+
+        @Transactional
+        public IntentoBlockResponse blockAntiCheat(AuthPrincipal principal, long intentoId,
+                        IntentoBlockRequest request) {
+                UserRole rol = requireRole(principal);
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanAccessIntento(rol, principal, intento);
+                intento.ensureDeadline(intento.getStartedAt().plusMinutes(examDurationMinutes));
+
+                String reason = request == null ? null : request.reason();
+                if (reason != null && reason.isBlank()) {
+                        reason = null;
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+                intento.block(now, reason);
+
+                return new IntentoBlockResponse(
+                                intento.getId(),
+                                intento.getEstado(),
+                                intento.getBlockedAt());
+        }
+
+        @Transactional
+        public IntentoReabrirResponse reabrir(AuthPrincipal principal, long intentoId, IntentoReabrirRequest request) {
+                UserRole rol = requireRole(principal);
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanManageIntento(rol, principal, intento);
+                intento.ensureDeadline(intento.getStartedAt().plusMinutes(examDurationMinutes));
+
+                int extraMinutes = request == null ? 0 : request.extraMinutes();
+                if (extraMinutes <= 0) {
+                        throw new BadRequestException("extraMinutes must be > 0");
+                }
+
+                try {
+                        intento.reopen(LocalDateTime.now(), extraMinutes);
+                } catch (IllegalStateException | IllegalArgumentException e) {
+                        throw new BadRequestException(e.getMessage());
+                }
+
+                return new IntentoReabrirResponse(
+                                intento.getId(),
+                                intento.getEstado(),
+                                intento.getDeadlineAt(),
+                                intento.getReopenCount(),
+                                intento.getExtraMinutesTotal());
+        }
+
+        @Transactional
+        public IntentoEnviarResponse forceSubmit(AuthPrincipal principal, long intentoId) {
+                UserRole rol = requireRole(principal);
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanManageIntento(rol, principal, intento);
+                intento.ensureDeadline(intento.getStartedAt().plusMinutes(examDurationMinutes));
+
+                if (intento.getEstado() != IntentoEstado.BLOCKED) {
+                        throw new BadRequestException("Solo se puede forzar envío cuando el intento está BLOQUEADO");
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+                intento.markFirstSubmitAttempt(now);
+                intento.submit(now);
+
+                return new IntentoEnviarResponse(
+                                intento.getId(),
+                                intento.getEstado(),
+                                intento.getFirstSubmitAttemptAt(),
+                                intento.getSubmittedAt(),
+                                0);
         }
 
         @Transactional
@@ -383,6 +554,29 @@ public class IntentoExamenService {
 
                 // ESTUDIANTE (u otros) nunca pueden eliminar intentos.
                 throw new AccessDeniedException("Rol no autorizado para eliminar intentos");
+        }
+
+        private void validateCanManageIntento(UserRole rol, AuthPrincipal principal, IntentoExamen intento) {
+                if (rol == UserRole.ADMIN) {
+                        return;
+                }
+
+                if (rol == UserRole.DOCENTE) {
+                        Long principalDocenteId = principal.getDocenteId();
+                        if (principalDocenteId == null) {
+                                throw new AccessDeniedException("Usuario docente sin docenteId asociado");
+                        }
+
+                        Long docenteResponsableId = intento.getExamen().getDocenteResponsable().getId();
+                        if (!principalDocenteId.equals(docenteResponsableId)) {
+                                throw new AccessDeniedException(
+                                                "Intento no pertenece a un examen del docente autenticado");
+                        }
+
+                        return;
+                }
+
+                throw new AccessDeniedException("Rol no autorizado");
         }
 
         private void validateDocenteAsociadoAMateria(Materia materia, Long docenteId) {
