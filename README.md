@@ -34,6 +34,11 @@ Si necesitas crear DB/usuario local, existe un script de ayuda en el workspace:
 - `DB_USER` (default: `wisegrade_app`)
 - `DB_PASSWORD` (requerida)
 
+Otras variables:
+
+- `APP_SESSION_TIMEOUT` (default: `180m`) — timeout de la sesión (`JSESSIONID`).
+- `APP_EXAM_DURATION_MINUTES` (default: `30`) — duración efectiva del examen en backend (ventana/deadline).
+
 Tip: también puedes crear `backend/.env.local` (no se sube a git) con:
 
 ```bash
@@ -42,7 +47,7 @@ DB_PASSWORD='tu_clave'
 
 CORS (frontend):
 
-- `APP_CORS_ALLOWED_ORIGINS` (default: `http://localhost:5173`)
+- `APP_CORS_ALLOWED_ORIGINS` (default en `dev`: `http://localhost:5173,http://192.168.1.8:5173`)
 
 ### Levantar en desarrollo
 
@@ -107,13 +112,27 @@ Se puede configurar con:
   - Sesión actual: `GET /api/auth/me`
   - Logout: `POST /api/auth/logout`
   - Crear usuarios (ADMIN): `POST /api/auth/users`
+  - Listar usuarios (ADMIN): `GET /api/auth/users`
+  - Obtener usuario (ADMIN): `GET /api/auth/users/{id}`
+  - Actualizar usuario (ADMIN): `PUT /api/auth/users/{id}`
+  - Eliminar usuario (ADMIN): `DELETE /api/auth/users/{id}`
   - Crear usuarios en bulk desde Docentes (ADMIN): `POST /api/auth/users/bulk/docentes`
   - Crear usuarios en bulk desde Estudiantes (ADMIN): `POST /api/auth/users/bulk/estudiantes`
-- Iniciar intento: `POST /api/intentos/iniciar`
-- Enviar intento: `POST /api/intentos/enviar`
-- Detalle de intento: `GET /api/intentos/{intentoId}`
-- Exportar intento a PDF: `GET /api/intentos/{intentoId}/export/pdf`
-- Resultados (docente): `GET /api/examenes/resultados?periodoId=...&materiaId=...&momentoId=...&docenteResponsableId=...`
+- Exámenes:
+  - Asegurar examen (ADMIN/DOCENTE): `POST /api/examenes/asegurar`
+  - Cargar banco (ADMIN/DOCENTE): `POST /api/examenes/banco`
+  - Generar examen (ADMIN): `POST /api/examenes/generar`
+  - Resultados (ADMIN/DOCENTE): `GET /api/examenes/resultados?periodoId=...&materiaId=...&momentoId=...&docenteResponsableId=...&includeInProgress=false`
+- Intentos:
+  - Iniciar intento (ESTUDIANTE/ADMIN): `POST /api/intentos/iniciar`
+  - Guardar parcial (ESTUDIANTE/ADMIN): `POST /api/intentos/{intentoId}/guardar`
+  - Bloquear por anticheat (ESTUDIANTE/ADMIN): `POST /api/intentos/{intentoId}/anticheat/block`
+  - Enviar intento (ESTUDIANTE/ADMIN): `POST /api/intentos/enviar`
+  - Detalle de intento (ESTUDIANTE/ADMIN): `GET /api/intentos/{intentoId}`
+  - Exportar intento a PDF (ESTUDIANTE/ADMIN): `GET /api/intentos/{intentoId}/export/pdf`
+  - Reabrir (DOCENTE/ADMIN): `POST /api/intentos/{intentoId}/reabrir`
+  - Forzar envío definitivo (DOCENTE/ADMIN): `POST /api/intentos/{intentoId}/force-submit`
+  - Borrar intento (DOCENTE/ADMIN): `DELETE /api/intentos/{intentoId}`
 
 Notas:
 
@@ -162,4 +181,4 @@ cd backend
 
 - **Flyway / schema mismatch**: revisa que MySQL esté apuntando a la DB correcta (`DB_URL`) y que el usuario tenga permisos.
 - **Access denied (DB)**: confirma `DB_USER` y `DB_PASSWORD`.
-- **CORS**: ajusta `APP_CORS_ALLOWED_ORIGINS` (default `http://localhost:5173`).
+- **CORS**: ajusta `APP_CORS_ALLOWED_ORIGINS` (default en `dev`: `http://localhost:5173,http://192.168.1.8:5173`).
