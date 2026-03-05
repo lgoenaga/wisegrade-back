@@ -2,6 +2,9 @@ package com.wisegrade.common.api;
 
 import com.wisegrade.common.BadRequestException;
 import com.wisegrade.common.NotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +21,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class RestExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(NotFoundException ex) {
@@ -62,7 +67,10 @@ public class RestExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleGeneric(Exception ex) {
+    public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
+        String method = request == null ? "?" : request.getMethod();
+        String path = request == null ? "?" : request.getRequestURI();
+        log.error("Unhandled exception while handling {} {}", method, path, ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiError.ofMessage("Unexpected error"));
     }
