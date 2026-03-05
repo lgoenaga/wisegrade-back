@@ -9,6 +9,8 @@ import com.wisegrade.auth.api.dto.AuthBulkDocentesResponse;
 import com.wisegrade.auth.api.dto.AuthBulkEstudiantesRequest;
 import com.wisegrade.auth.api.dto.AuthBulkEstudiantesResponse;
 import com.wisegrade.auth.api.dto.AuthUserCreateRequest;
+import com.wisegrade.auth.api.dto.AuthUserResponse;
+import com.wisegrade.auth.api.dto.AuthUserUpdateRequest;
 import com.wisegrade.auth.model.UserRole;
 import com.wisegrade.auth.model.Usuario;
 import com.wisegrade.auth.repository.UsuarioRepository;
@@ -37,9 +39,21 @@ public class AuthUserService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<AuthUserResponse> list() {
+        return usuarioRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AuthUserResponse get(long id) {
+        Usuario u = usuarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Usuario not found: " + id));
+        return toResponse(u);
+    }
+
     @Transactional
     public Usuario createUser(AuthUserCreateRequest req) {
-        String documento = req.documento().trim();
+        String documento = normalizeDocumento(req.documento());
 
         if (usuarioRepository.findByDocumento(documento).isPresent()) {
             throw new BadRequestException("Ya existe un usuario con documento: " + documento);
@@ -47,15 +61,74 @@ public class AuthUserService {
 
         boolean activo = req.activo() == null || req.activo();
         UserRole rol = req.rol();
-
         Long docenteId = req.docenteId();
         Long estudianteId = req.estudianteId();
 
+        validateRoleAndLinks(documento, rol, docenteId, estudianteId);
+
+        String hash = passwordEncoder.encode(req.clave());
+        return usuarioRepository.save(new Usuario(documento, hash, rol, docenteId, estudianteId, activo));
+    }
+
+    @Transactional
+    public AuthUserResponse update(long id, AuthUserUpdateRequest req) {
+        Usuario u = usuarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Usuario not found: " + id));
+
+        String documento = normalizeDocumento(req.documento());
+        if (!documento.equals(u.getDocumento())) {
+            usuarioRepository.findByDocumento(documento).ifPresent(existing -> {
+                if (!existing.getId().equals(u.getId())) {
+                    throw new BadRequestException("Ya existe un usuario con documento: " + documento);
+                }
+            });
+        }
+
+        UserRole rol = req.rol();
+        Long docenteId = req.docenteId();
+        Long estudianteId = req.estudianteId();
+
+        validateRoleAndLinks(documento, rol, docenteId, estudianteId);
+
+        u.setDocumento(documento);
+        u.setRol(rol);
+        u.setDocenteId(docenteId);
+        u.setEstudianteId(estudianteId);
+        u.setActivo(Boolean.TRUE.equals(req.activo()));
+
+        String clave = req.clave();
+        if (clave != null && !clave.trim().isBlank()) {
+            u.setPasswordHash(passwordEncoder.encode(clave));
+        }
+
+        return toResponse(u);
+    }
+
+    @Transactional
+    public void delete(long id) {
+        if (!usuarioRepository.existsById(id)) {
+            throw new NotFoundException("Usuario not found: " + id);
+        }
+        usuarioRepository.deleteById(id);
+    }
+
+    private String normalizeDocumento(String documentoRaw) {
+        String d = documentoRaw == null ? "" : documentoRaw.trim();
+        if (d.isBlank()) {
+            throw new BadRequestException("Documento inválido");
+        }
+        return d;
+    }
+
+    private void validateRoleAndLinks(String documento, UserRole rol, Long docenteId, Long estudianteId) {
         if (rol == UserRole.ADMIN) {
             if (docenteId != null || estudianteId != null) {
                 throw new BadRequestException("ADMIN no debe tener docenteId/estudianteId");
             }
-        } else if (rol == UserRole.DOCENTE) {
+            return;
+        }
+
+        if (rol == UserRole.DOCENTE) {
             if (docenteId == null || estudianteId != null) {
                 throw new BadRequestException("DOCENTE requiere docenteId y no debe tener estudianteId");
             }
@@ -64,7 +137,10 @@ public class AuthUserService {
             if (!documento.equals(d.getDocumento())) {
                 throw new BadRequestException("Documento de usuario debe coincidir con el documento del docente");
             }
-        } else if (rol == UserRole.ESTUDIANTE) {
+            return;
+        }
+
+        if (rol == UserRole.ESTUDIANTE) {
             if (estudianteId == null || docenteId != null) {
                 throw new BadRequestException("ESTUDIANTE requiere estudianteId y no debe tener docenteId");
             }
@@ -73,10 +149,20 @@ public class AuthUserService {
             if (!documento.equals(e.getDocumento())) {
                 throw new BadRequestException("Documento de usuario debe coincidir con el documento del estudiante");
             }
+            return;
         }
 
-        String hash = passwordEncoder.encode(req.clave());
-        return usuarioRepository.save(new Usuario(documento, hash, rol, docenteId, estudianteId, activo));
+        throw new BadRequestException("Rol inválido: " + rol);
+    }
+
+    private AuthUserResponse toResponse(Usuario u) {
+        return new AuthUserResponse(
+                u.getId(),
+                u.getDocumento(),
+                u.getRol(),
+                u.getDocenteId(),
+                u.getEstudianteId(),
+                u.isActivo());
     }
 
     @Transactional

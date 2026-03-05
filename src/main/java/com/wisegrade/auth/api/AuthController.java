@@ -7,6 +7,8 @@ import com.wisegrade.auth.api.dto.AuthBulkEstudiantesResponse;
 import com.wisegrade.auth.api.dto.AuthLoginRequest;
 import com.wisegrade.auth.api.dto.AuthMeResponse;
 import com.wisegrade.auth.api.dto.AuthUserCreateRequest;
+import com.wisegrade.auth.api.dto.AuthUserResponse;
+import com.wisegrade.auth.api.dto.AuthUserUpdateRequest;
 import com.wisegrade.auth.security.AuthPrincipal;
 import com.wisegrade.auth.service.AuthMeService;
 import com.wisegrade.auth.service.AuthUserService;
@@ -23,12 +25,17 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -92,6 +99,34 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public void createUser(@Valid @RequestBody AuthUserCreateRequest req) {
         authUserService.createUser(req);
+    }
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    public List<AuthUserResponse> listUsers() {
+        return authUserService.list();
+    }
+
+    @GetMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthUserResponse getUser(@PathVariable long id) {
+        return authUserService.get(id);
+    }
+
+    @PutMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthUserResponse updateUser(@PathVariable long id, @Valid @RequestBody AuthUserUpdateRequest req) {
+        return authUserService.update(id, req);
+    }
+
+    @DeleteMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(@PathVariable long id) {
+        authUserService.delete(id);
     }
 
     @PostMapping("/users/bulk/estudiantes")
