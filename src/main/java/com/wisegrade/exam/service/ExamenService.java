@@ -117,8 +117,17 @@ public class ExamenService {
                                 request.momentoId(),
                                 request.docenteResponsableId());
 
-                long total = preguntaRepository.countByExamenId(result.examen().getId());
-                return new ExamenEnsureResponse(result.examen().getId(), result.created(), total);
+                Examen examen = result.examen();
+                if (request.beneficio() != null) {
+                        boolean newValue = Boolean.TRUE.equals(request.beneficio());
+                        if (examen.isBeneficio() != newValue) {
+                                examen.setBeneficio(newValue);
+                                examenRepository.save(examen);
+                        }
+                }
+
+                long total = preguntaRepository.countByExamenId(examen.getId());
+                return new ExamenEnsureResponse(examen.getId(), result.created(), total);
         }
 
         @Transactional(readOnly = true)
