@@ -13,7 +13,7 @@ final class ResultadoIntentoCalculator {
     private ResultadoIntentoCalculator() {
     }
 
-    static ResultadoIntentoResponse calcular(List<IntentoPregunta> intentoPreguntas) {
+    static ResultadoIntentoResponse calcular(List<IntentoPregunta> intentoPreguntas, boolean beneficio) {
         int total = intentoPreguntas.size();
         int correctas = 0;
         for (IntentoPregunta ip : intentoPreguntas) {
@@ -23,13 +23,20 @@ final class ResultadoIntentoCalculator {
             }
         }
 
+        int totalEfectivo = total;
+        if (beneficio && total > 0) {
+            int incorrectas = total - correctas;
+            int descuento = Math.min(5, Math.max(0, incorrectas));
+            totalEfectivo = total - descuento;
+        }
+
         BigDecimal notaSobre5;
-        if (total <= 0) {
+        if (totalEfectivo <= 0) {
             notaSobre5 = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         } else {
             notaSobre5 = BigDecimal.valueOf(correctas)
                     .multiply(BigDecimal.valueOf(5))
-                    .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(totalEfectivo), 2, RoundingMode.HALF_UP);
         }
 
         return new ResultadoIntentoResponse(correctas, total, notaSobre5);

@@ -135,7 +135,8 @@ public class ExamenResultadosService {
                                                         List.of());
                                         ResultadoIntentoResponse resultado = null;
                                         if (i.getEstado() == IntentoEstado.SUBMITTED) {
-                                                resultado = ResultadoIntentoCalculator.calcular(ips);
+                                                resultado = ResultadoIntentoCalculator.calcular(ips,
+                                                                examen.isBeneficio());
                                         }
 
                                         return new ExamenResultadoFilaResponse(

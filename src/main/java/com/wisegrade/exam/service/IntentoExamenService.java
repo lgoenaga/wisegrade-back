@@ -242,7 +242,8 @@ public class IntentoExamenService {
                 ResultadoIntentoResponse resultado = null;
                 List<CorreccionPreguntaResponse> correccion = List.of();
                 if (intento.getEstado() == IntentoEstado.SUBMITTED) {
-                        resultado = ResultadoIntentoCalculator.calcular(intentoPreguntas);
+                        resultado = ResultadoIntentoCalculator.calcular(intentoPreguntas,
+                                        intento.getExamen().isBeneficio());
                         correccion = intentoPreguntas.stream()
                                         .map(ip -> {
                                                 RespuestaCorrecta respuestaEstudiante = ip.getRespuesta();
