@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Column;
 
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -50,6 +51,9 @@ public class Examen {
     @OneToMany(mappedBy = "examen", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Pregunta> preguntas = new LinkedHashSet<>();
 
+    @Column(name = "beneficio", nullable = false)
+    private boolean beneficio = false;
+
     protected Examen() {
     }
 
@@ -82,6 +86,14 @@ public class Examen {
 
     public Set<Pregunta> getPreguntas() {
         return preguntas;
+    }
+
+    public boolean isBeneficio() {
+        return beneficio;
+    }
+
+    public void setBeneficio(boolean beneficio) {
+        this.beneficio = beneficio;
     }
 
     public void addPregunta(Pregunta pregunta) {
