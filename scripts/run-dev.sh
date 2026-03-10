@@ -35,10 +35,11 @@ if [[ -z "${DB_PASSWORD:-}" ]]; then
   echo "DB_PASSWORD no está definida. Ingrésala para iniciar el backend (no se mostrará)." 1>&2
   read -r -s -p "DB_PASSWORD: " DB_PASSWORD
   echo 1>&2
-  export DB_PASSWORD
 fi
 
-export DB_URL DB_USER
+export DB_PASSWORD
+
+export DB_URL DB_USER DB_PASSWORD
 
 echo "[WiseGrade] DB_URL=$DB_URL" 1>&2
 echo "[WiseGrade] DB_USER=$DB_USER" 1>&2

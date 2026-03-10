@@ -10,10 +10,11 @@ if [[ -z "${DB_PASSWORD:-}" ]]; then
   echo "DB_PASSWORD no está definida. Ingrésala para ejecutar las pruebas (no se mostrará)." 1>&2
   read -r -s -p "DB_PASSWORD: " DB_PASSWORD
   echo 1>&2
-  export DB_PASSWORD
 fi
 
-export DB_URL DB_USER
+export DB_PASSWORD
+
+export DB_URL DB_USER DB_PASSWORD
 
 JAVA_HOME="/home/soporte/.jdk/jdk-21.0.8"
 export JAVA_HOME
