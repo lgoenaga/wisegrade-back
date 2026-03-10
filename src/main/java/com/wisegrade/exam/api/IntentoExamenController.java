@@ -125,7 +125,7 @@ public class IntentoExamenController {
     }
 
     @PostMapping("/{intentoId}/repetir")
-    @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @ResponseStatus(HttpStatus.OK)
     public IntentoIniciarResponse repetir(
             @AuthenticationPrincipal AuthPrincipal principal,

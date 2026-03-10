@@ -218,14 +218,14 @@ public class IntentoExamenService {
         @Transactional
         public IntentoIniciarResponse repetir(AuthPrincipal principal, long intentoId) {
                 UserRole rol = requireRole(principal);
-                if (rol != UserRole.ADMIN && rol != UserRole.ESTUDIANTE) {
+                if (rol != UserRole.ADMIN && rol != UserRole.DOCENTE) {
                         throw new AccessDeniedException("Rol no autorizado para repetir intentos");
                 }
 
                 IntentoExamen intento = intentoExamenRepository.findById(intentoId)
                                 .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
 
-                validateCanAccessIntento(rol, principal, intento);
+                validateCanManageIntento(rol, principal, intento);
 
                 if (intento.getEstado() != IntentoEstado.SUBMITTED) {
                         throw new BadRequestException("Solo se puede repetir cuando el intento está SUBMITTED");
