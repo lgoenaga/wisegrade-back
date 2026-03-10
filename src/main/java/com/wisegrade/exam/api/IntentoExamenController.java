@@ -124,6 +124,15 @@ public class IntentoExamenController {
         return intentoExamenService.forceSubmit(principal, intentoId);
     }
 
+    @PostMapping("/{intentoId}/repetir")
+    @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public IntentoIniciarResponse repetir(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable long intentoId) {
+        return intentoExamenService.repetir(principal, intentoId);
+    }
+
     @DeleteMapping("/{intentoId}")
     @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @ResponseStatus(HttpStatus.NO_CONTENT)

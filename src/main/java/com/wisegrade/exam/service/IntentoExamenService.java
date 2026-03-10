@@ -38,11 +38,15 @@ import com.wisegrade.exam.repository.ExamenRepository;
 import com.wisegrade.exam.repository.IntentoExamenRepository;
 import com.wisegrade.exam.repository.IntentoPreguntaRepository;
 import com.wisegrade.exam.repository.PreguntaRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,6 +56,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class IntentoExamenService {
+
+        @PersistenceContext
+        private EntityManager entityManager;
 
         private final ExamenRepository examenRepository;
         private final PreguntaRepository preguntaRepository;
@@ -205,6 +212,186 @@ public class IntentoExamenService {
                                 saved.getExtraMinutesTotal(),
                                 cantidad,
                                 preguntas);
+        }
+
+        @Transactional
+        public IntentoIniciarResponse repetir(AuthPrincipal principal, long intentoId) {
+                UserRole rol = requireRole(principal);
+                if (rol != UserRole.ADMIN && rol != UserRole.ESTUDIANTE) {
+                        throw new AccessDeniedException("Rol no autorizado para repetir intentos");
+                }
+
+                IntentoExamen intento = intentoExamenRepository.findById(intentoId)
+                                .orElseThrow(() -> new NotFoundException("Intento not found: " + intentoId));
+
+                validateCanAccessIntento(rol, principal, intento);
+
+                if (intento.getEstado() != IntentoEstado.SUBMITTED) {
+                        throw new BadRequestException("Solo se puede repetir cuando el intento está SUBMITTED");
+                }
+
+                Long examenId = intento.getExamen().getId();
+                Long estudianteId = intento.getEstudiante().getId();
+
+                boolean alreadyRepeated = !entityManager
+                                .createNativeQuery(
+                                                "select 1 from intentos_examen_hist where examen_id = ? and estudiante_id = ? limit 1")
+                                .setParameter(1, examenId)
+                                .setParameter(2, estudianteId)
+                                .getResultList()
+                                .isEmpty();
+                if (alreadyRepeated) {
+                        throw new BadRequestException("Solo puede repetirse 1 vez");
+                }
+
+                List<IntentoPregunta> ips = intentoPreguntaRepository
+                                .findAllByIntentoIdInFetchPreguntaOrderByIntentoIdAscOrdenAsc(List.of(intentoId));
+                int cantidad = ips.size();
+                if (cantidad <= 0) {
+                        throw new BadRequestException("Intento no tiene preguntas para repetir");
+                }
+
+                ResultadoIntentoResponse resultado = ResultadoIntentoCalculator.calcular(ips);
+                int correctas = resultado == null ? 0 : resultado.correctas();
+                int total = resultado == null ? cantidad : resultado.total();
+                BigDecimal notaSobre5 = resultado == null ? null : resultado.notaSobre5();
+
+                LocalDateTime now = LocalDateTime.now();
+                Timestamp archivedAt = Timestamp.valueOf(now);
+                Long archivedByUsuarioId = principal == null ? null : principal.getUsuarioId();
+
+                int insertedAttemptRows = entityManager.createNativeQuery("""
+                                insert into intentos_examen_hist (
+                                    id,
+                                    examen_id,
+                                    estudiante_id,
+                                    estado,
+                                    started_at,
+                                    deadline_at,
+                                    first_submit_attempt_at,
+                                    submitted_at,
+                                    blocked_at,
+                                    block_reason,
+                                    reopened_at,
+                                    reopen_count,
+                                    extra_minutes_total,
+                                    archived_at,
+                                    archived_action,
+                                    archived_by_usuario_id,
+                                    correctas,
+                                    total,
+                                    nota_sobre_5
+                                )
+                                select
+                                    id,
+                                    examen_id,
+                                    estudiante_id,
+                                    estado,
+                                    started_at,
+                                    deadline_at,
+                                    first_submit_attempt_at,
+                                    submitted_at,
+                                    blocked_at,
+                                    block_reason,
+                                    reopened_at,
+                                    reopen_count,
+                                    extra_minutes_total,
+                                    ?,
+                                    'REPEAT',
+                                    ?,
+                                    ?,
+                                    ?,
+                                    ?
+                                from intentos_examen
+                                where id = ?
+                                """)
+                                .setParameter(1, archivedAt)
+                                .setParameter(2, archivedByUsuarioId)
+                                .setParameter(3, correctas)
+                                .setParameter(4, total)
+                                .setParameter(5, notaSobre5)
+                                .setParameter(6, intentoId)
+                                .executeUpdate();
+                if (insertedAttemptRows != 1) {
+                        throw new IllegalStateException(
+                                        "No se pudo archivar intento (rows=" + insertedAttemptRows + ")");
+                }
+
+                entityManager.createNativeQuery("""
+                                insert into intento_preguntas_hist (
+                                    id,
+                                    intento_id,
+                                    pregunta_id,
+                                    orden,
+                                    respuesta,
+                                    responded_at,
+                                    archived_at
+                                )
+                                select
+                                    id,
+                                    intento_id,
+                                    pregunta_id,
+                                    orden,
+                                    respuesta,
+                                    responded_at,
+                                    ?
+                                from intento_preguntas
+                                where intento_id = ?
+                                """)
+                                .setParameter(1, archivedAt)
+                                .setParameter(2, intentoId)
+                                .executeUpdate();
+
+                // Delete active rows so the UNIQUE (examen_id, estudiante_id) allows a new attempt.
+                intentoPreguntaRepository.deleteByIntento_Id(intentoId);
+                intentoExamenRepository.deleteById(intentoId);
+
+                IntentoExamen nuevo = createNewAttempt(intento.getExamen(), intento.getEstudiante(), cantidad);
+                IntentoExamen saved = intentoExamenRepository.save(nuevo);
+
+                List<PreguntaGeneratedResponse> preguntas = nuevo.getPreguntas().stream()
+                                .map(ip -> {
+                                        Pregunta p = ip.getPregunta();
+                                        return new PreguntaGeneratedResponse(
+                                                        p.getId(),
+                                                        p.getEnunciado(),
+                                                        List.of(p.getOpcionA(), p.getOpcionB(), p.getOpcionC(),
+                                                                        p.getOpcionD()));
+                                })
+                                .toList();
+
+                return new IntentoIniciarResponse(
+                                saved.getId(),
+                                examenId,
+                                estudianteId,
+                                saved.getEstado(),
+                                saved.getStartedAt(),
+                                saved.getDeadlineAt(),
+                                saved.getBlockedAt(),
+                                saved.getReopenCount(),
+                                saved.getExtraMinutesTotal(),
+                                preguntas.size(),
+                                preguntas);
+        }
+
+        private IntentoExamen createNewAttempt(Examen examen, Estudiante estudiante, int cantidad) {
+                List<Pregunta> banco = new ArrayList<>(preguntaRepository.findAllByExamenId(examen.getId()));
+                if (banco.size() < cantidad) {
+                        throw new BadRequestException(
+                                        "Not enough questions in bank: have " + banco.size() + ", need " + cantidad);
+                }
+
+                banco.sort((a, b) -> Long.compare(a.getId(), b.getId()));
+                java.util.Collections.shuffle(banco, ThreadLocalRandom.current());
+                List<Pregunta> seleccion = banco.subList(0, cantidad);
+
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime deadlineAt = now.plusMinutes(examDurationMinutes);
+                IntentoExamen intento = new IntentoExamen(examen, estudiante, now, deadlineAt);
+                for (int i = 0; i < seleccion.size(); i++) {
+                        intento.addPregunta(new IntentoPregunta(seleccion.get(i), i + 1));
+                }
+                return intento;
         }
 
         @Transactional(readOnly = true)
