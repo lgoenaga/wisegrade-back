@@ -19,6 +19,8 @@
     <properties>
         <java.version>21</java.version>
         <testcontainers.version>1.20.6</testcontainers.version>
+        <!-- Keep in sync with the Flyway runtime version managed by Spring Boot -->
+        <flyway.version>10.20.1</flyway.version>
     </properties>
 
     <dependencyManagement>
@@ -105,6 +107,28 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Dev utility: allows `mvn flyway:repair` / `mvn flyway:info` using DB_* env vars -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway.version}</version>
+                <configuration>
+                    <url>${env.DB_URL}</url>
+                    <user>${env.DB_USER}</user>
+                    <password>${env.DB_PASSWORD}</password>
+                    <locations>
+                        <location>filesystem:src/main/resources/db/migration</location>
+                    </locations>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-mysql</artifactId>
+                        <version>${flyway.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
