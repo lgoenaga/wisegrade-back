@@ -40,6 +40,7 @@ import com.wisegrade.exam.repository.IntentoPreguntaRepository;
 import com.wisegrade.exam.repository.PreguntaRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.lang.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -342,7 +343,8 @@ public class IntentoExamenService {
                                 .setParameter(2, intentoId)
                                 .executeUpdate();
 
-                // Delete active rows so the UNIQUE (examen_id, estudiante_id) allows a new attempt.
+                // Delete active rows so the UNIQUE (examen_id, estudiante_id) allows a new
+                // attempt.
                 intentoPreguntaRepository.deleteByIntento_Id(intentoId);
                 intentoExamenRepository.deleteById(intentoId);
 
@@ -374,7 +376,7 @@ public class IntentoExamenService {
                                 preguntas);
         }
 
-        private IntentoExamen createNewAttempt(Examen examen, Estudiante estudiante, int cantidad) {
+        private @NonNull IntentoExamen createNewAttempt(Examen examen, Estudiante estudiante, int cantidad) {
                 List<Pregunta> banco = new ArrayList<>(preguntaRepository.findAllByExamenId(examen.getId()));
                 if (banco.size() < cantidad) {
                         throw new BadRequestException(
