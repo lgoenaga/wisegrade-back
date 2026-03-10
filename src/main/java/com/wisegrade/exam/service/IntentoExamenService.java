@@ -348,6 +348,11 @@ public class IntentoExamenService {
                 intentoPreguntaRepository.deleteByIntento_Id(intentoId);
                 intentoExamenRepository.deleteById(intentoId);
 
+                // Important: force deletes to hit the DB before inserting the new attempt.
+                // Otherwise Hibernate may flush the INSERT before the DELETE and trigger
+                // uk_intento_examen_estudiante (examen_id, estudiante_id) duplicate key.
+                entityManager.flush();
+
                 IntentoExamen nuevo = createNewAttempt(intento.getExamen(), intento.getEstudiante(), cantidad);
                 IntentoExamen saved = intentoExamenRepository.save(nuevo);
 
