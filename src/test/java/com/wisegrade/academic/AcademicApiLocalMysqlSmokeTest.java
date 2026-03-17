@@ -436,6 +436,8 @@ class AcademicApiLocalMysqlSmokeTest {
                 assertThat(resultadosBody.path("beneficio").asBoolean()).isTrue();
                 assertThat(resultadosBody.path("filas").isArray()).isTrue();
                 assertThat(resultadosBody.path("filas").size()).isEqualTo(1);
+                assertThat(resultadosBody.path("filas").get(0).path("cantidadPreguntas").asInt()).isEqualTo(3);
+                assertThat(resultadosBody.path("filas").get(0).path("preguntasRespondidas").asInt()).isEqualTo(3);
                 assertThat(resultadosBody.path("filas").get(0).path("resultado").path("notaSobre5").decimalValue())
                                 .isEqualByComparingTo("5.00");
         }
