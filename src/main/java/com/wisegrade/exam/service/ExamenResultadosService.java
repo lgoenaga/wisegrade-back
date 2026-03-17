@@ -105,14 +105,13 @@ public class ExamenResultadosService {
                 }
 
                 Map<Long, List<IntentoPregunta>> preguntasByIntentoId = new HashMap<>();
-                List<Long> submittedIntentoIds = intentos.stream()
-                                .filter(i -> i.getEstado() == IntentoEstado.SUBMITTED)
+                List<Long> intentoIds = intentos.stream()
                                 .map(IntentoExamen::getId)
                                 .toList();
-                if (!submittedIntentoIds.isEmpty()) {
+                if (!intentoIds.isEmpty()) {
                         List<IntentoPregunta> allPreguntas = intentoPreguntaRepository
                                         .findAllByIntentoIdInFetchPreguntaOrderByIntentoIdAscOrdenAsc(
-                                                        submittedIntentoIds);
+                                                        intentoIds);
 
                         for (IntentoPregunta ip : allPreguntas) {
                                 Long intentoId = ip.getIntentoId();
@@ -134,6 +133,10 @@ public class ExamenResultadosService {
 
                                         List<IntentoPregunta> ips = preguntasByIntentoId.getOrDefault(i.getId(),
                                                         List.of());
+                                        int cantidadPreguntas = ips.size();
+                                        int preguntasRespondidas = (int) ips.stream()
+                                                        .filter(ip -> ip.getRespuesta() != null)
+                                                        .count();
                                         ResultadoIntentoResponse resultado = null;
                                         if (i.getEstado() == IntentoEstado.SUBMITTED) {
                                                 resultado = ResultadoIntentoCalculator.calcular(ips,
@@ -150,6 +153,8 @@ public class ExamenResultadosService {
                                                         i.getReopenCount(),
                                                         i.getExtraMinutesTotal(),
                                                         i.getSubmittedAt(),
+                                                        cantidadPreguntas,
+                                                        preguntasRespondidas,
                                                         resultado);
                                 })
                                 .toList();
