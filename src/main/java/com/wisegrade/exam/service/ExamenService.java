@@ -117,8 +117,16 @@ public class ExamenService {
                                 request.momentoId(),
                                 request.docenteResponsableId());
 
+                if (request.beneficio() != null) {
+                        result.examen().setBeneficio(request.beneficio());
+                }
+
                 long total = preguntaRepository.countByExamenId(result.examen().getId());
-                return new ExamenEnsureResponse(result.examen().getId(), result.created(), total);
+                return new ExamenEnsureResponse(
+                                result.examen().getId(),
+                                result.created(),
+                                total,
+                                result.examen().isBeneficio());
         }
 
         @Transactional(readOnly = true)

@@ -5,6 +5,7 @@ import com.wisegrade.academic.model.Materia;
 import com.wisegrade.academic.model.Momento;
 import com.wisegrade.academic.model.Periodo;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -47,6 +48,9 @@ public class Examen {
     @JoinColumn(name = "docente_responsable_id", nullable = false)
     private Docente docenteResponsable;
 
+    @Column(name = "beneficio", nullable = false)
+    private boolean beneficio;
+
     @OneToMany(mappedBy = "examen", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Pregunta> preguntas = new LinkedHashSet<>();
 
@@ -78,6 +82,14 @@ public class Examen {
 
     public Docente getDocenteResponsable() {
         return docenteResponsable;
+    }
+
+    public boolean isBeneficio() {
+        return beneficio;
+    }
+
+    public void setBeneficio(boolean beneficio) {
+        this.beneficio = beneficio;
     }
 
     public Set<Pregunta> getPreguntas() {

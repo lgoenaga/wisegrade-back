@@ -10,10 +10,12 @@ import java.util.List;
 
 final class ResultadoIntentoCalculator {
 
+    private static final BigDecimal MAX_NOTA = BigDecimal.valueOf(5);
+
     private ResultadoIntentoCalculator() {
     }
 
-    static ResultadoIntentoResponse calcular(List<IntentoPregunta> intentoPreguntas) {
+    static ResultadoIntentoResponse calcular(List<IntentoPregunta> intentoPreguntas, boolean beneficio) {
         int total = intentoPreguntas.size();
         int correctas = 0;
         for (IntentoPregunta ip : intentoPreguntas) {
@@ -27,9 +29,20 @@ final class ResultadoIntentoCalculator {
         if (total <= 0) {
             notaSobre5 = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         } else {
-            notaSobre5 = BigDecimal.valueOf(correctas)
-                    .multiply(BigDecimal.valueOf(5))
-                    .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+            int totalAjustado = total;
+            if (beneficio) {
+                int incorrectas = total - correctas;
+                int descuento = Math.min(5, incorrectas);
+                totalAjustado = total - descuento;
+            }
+
+            if (totalAjustado <= 0) {
+                notaSobre5 = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            } else {
+                notaSobre5 = BigDecimal.valueOf(correctas)
+                        .multiply(MAX_NOTA)
+                        .divide(BigDecimal.valueOf(totalAjustado), 2, RoundingMode.HALF_UP);
+            }
         }
 
         return new ResultadoIntentoResponse(correctas, total, notaSobre5);

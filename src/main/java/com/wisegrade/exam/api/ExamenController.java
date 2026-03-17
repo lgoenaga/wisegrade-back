@@ -76,7 +76,8 @@ public class ExamenController {
                     request.periodoId(),
                     request.materiaId(),
                     request.momentoId(),
-                    principalDocenteId);
+                    principalDocenteId,
+                    request.beneficio());
         }
 
         return examenService.ensureExamen(request);

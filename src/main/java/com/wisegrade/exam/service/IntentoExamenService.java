@@ -252,7 +252,9 @@ public class IntentoExamenService {
                         throw new BadRequestException("Intento no tiene preguntas para repetir");
                 }
 
-                ResultadoIntentoResponse resultado = ResultadoIntentoCalculator.calcular(ips);
+                ResultadoIntentoResponse resultado = ResultadoIntentoCalculator.calcular(
+                                ips,
+                                intento.getExamen().isBeneficio());
                 int correctas = resultado == null ? 0 : resultado.correctas();
                 int total = resultado == null ? cantidad : resultado.total();
                 BigDecimal notaSobre5 = resultado == null ? null : resultado.notaSobre5();
@@ -436,7 +438,9 @@ public class IntentoExamenService {
                 ResultadoIntentoResponse resultado = null;
                 List<CorreccionPreguntaResponse> correccion = List.of();
                 if (intento.getEstado() == IntentoEstado.SUBMITTED) {
-                        resultado = ResultadoIntentoCalculator.calcular(intentoPreguntas);
+                        resultado = ResultadoIntentoCalculator.calcular(
+                                        intentoPreguntas,
+                                        intento.getExamen().isBeneficio());
                         correccion = intentoPreguntas.stream()
                                         .map(ip -> {
                                                 RespuestaCorrecta respuestaEstudiante = ip.getRespuesta();
