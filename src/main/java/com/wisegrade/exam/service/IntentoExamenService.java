@@ -215,6 +215,23 @@ public class IntentoExamenService {
                                 preguntas);
         }
 
+        @Transactional(readOnly = true)
+        public IntentoDetalleResponse getSubmittedForReview(AuthPrincipal principal, IntentoIniciarRequest request) {
+                UserRole rol = requireRole(principal);
+                long estudianteId = resolveEstudianteIdForIniciar(rol, principal, request.estudianteId());
+
+                Examen examen = resolveExamenForRequest(request);
+
+                IntentoExamen intento = intentoExamenRepository
+                                .findByExamenIdAndEstudianteId(examen.getId(), estudianteId)
+                                .filter(existing -> existing.getEstado() == IntentoEstado.SUBMITTED)
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Submitted intento not found for (examenId=" + examen.getId()
+                                                                + ", estudianteId=" + estudianteId + ")"));
+
+                return getDetalle(principal, intento.getId());
+        }
+
         @Transactional
         public IntentoIniciarResponse repetir(AuthPrincipal principal, long intentoId) {
                 UserRole rol = requireRole(principal);
@@ -704,6 +721,32 @@ public class IntentoExamenService {
                 }
 
                 throw new AccessDeniedException("Rol no autorizado para iniciar intentos");
+        }
+
+        private Examen resolveExamenForRequest(IntentoIniciarRequest request) {
+                periodoRepository.findById(request.periodoId())
+                                .orElseThrow(() -> new NotFoundException("Periodo not found: " + request.periodoId()));
+
+                Materia materia = materiaRepository.findById(request.materiaId())
+                                .orElseThrow(() -> new NotFoundException("Materia not found: " + request.materiaId()));
+
+                momentoRepository.findById(request.momentoId())
+                                .orElseThrow(() -> new NotFoundException("Momento not found: " + request.momentoId()));
+
+                Docente docente = docenteRepository.findById(request.docenteResponsableId())
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Docente not found: " + request.docenteResponsableId()));
+
+                validateDocenteAsociadoAMateria(materia, docente.getId());
+
+                return examenRepository
+                                .findByPeriodoIdAndMateriaIdAndMomentoIdAndDocenteResponsableId(
+                                                request.periodoId(),
+                                                request.materiaId(),
+                                                request.momentoId(),
+                                                request.docenteResponsableId())
+                                .orElseThrow(() -> new NotFoundException(
+                                                "Examen not found for (periodoId, materiaId, momentoId, docenteResponsableId)"));
         }
 
         private void validateCanAccessIntento(UserRole rol, AuthPrincipal principal, IntentoExamen intento) {
