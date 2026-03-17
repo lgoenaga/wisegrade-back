@@ -53,6 +53,15 @@ public class IntentoExamenController {
         return intentoExamenService.iniciar(principal, request);
     }
 
+    @PostMapping("/revisar")
+    @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
+    @ResponseStatus(HttpStatus.OK)
+    public IntentoDetalleResponse revisar(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody IntentoIniciarRequest request) {
+        return intentoExamenService.getSubmittedForReview(principal, request);
+    }
+
     @GetMapping("/{intentoId}")
     @PreAuthorize("hasAnyRole('ADMIN','ESTUDIANTE')")
     @ResponseStatus(HttpStatus.OK)

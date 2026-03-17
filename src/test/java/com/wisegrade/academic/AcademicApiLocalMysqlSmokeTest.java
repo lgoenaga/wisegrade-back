@@ -442,6 +442,274 @@ class AcademicApiLocalMysqlSmokeTest {
                                 .isEqualByComparingTo("5.00");
         }
 
+        @Test
+        void reviewEndpointReturnsSubmittedAttemptWithoutStartingANewOne() throws Exception {
+                long docenteId = createDocente("Doc" + UUID.randomUUID());
+                long estudianteId = createEstudiante("Est" + UUID.randomUUID());
+
+                long materiaId = firstIdFromList("/api/materias");
+                long periodoId = firstIdFromList("/api/periodos");
+                long momentoId = firstIdFromList("/api/momentos");
+
+                ResponseEntity<String> linkResponse = rest.exchange(
+                                "/api/materias/{materiaId}/docentes/{docenteId}",
+                                HttpMethod.PUT,
+                                HttpEntity.EMPTY,
+                                String.class,
+                                materiaId,
+                                docenteId);
+                assertThat(linkResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                String ensurePayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"beneficio\":false" +
+                                "}";
+
+                ResponseEntity<String> ensureResponse = rest.postForEntity(
+                                "/api/examenes/asegurar",
+                                new HttpEntity<>(ensurePayload, headers),
+                                String.class);
+                assertThat(ensureResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                String bancoPayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"preguntas\":[" +
+                                "{\"enunciado\":\"Rev 1 " + UUID.randomUUID()
+                                + "\",\"opcionA\":\"A1\",\"opcionB\":\"B1\",\"opcionC\":\"C1\",\"opcionD\":\"D1\",\"correcta\":\"A\"},"
+                                +
+                                "{\"enunciado\":\"Rev 2 " + UUID.randomUUID()
+                                + "\",\"opcionA\":\"A2\",\"opcionB\":\"B2\",\"opcionC\":\"C2\",\"opcionD\":\"D2\",\"correcta\":\"B\"}"
+                                +
+                                "]}";
+
+                ResponseEntity<String> loadResponse = rest.postForEntity(
+                                "/api/examenes/banco",
+                                new HttpEntity<>(bancoPayload, headers),
+                                String.class);
+                assertThat(loadResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                String startPayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"estudianteId\":" + estudianteId + "," +
+                                "\"cantidad\":2" +
+                                "}";
+
+                ResponseEntity<String> startResponse = rest.postForEntity(
+                                "/api/intentos/iniciar",
+                                new HttpEntity<>(startPayload, headers),
+                                String.class);
+                assertThat(startResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                JsonNode startBody = objectMapper.readTree(startResponse.getBody());
+                long intentoId = startBody.path("intentoId").asLong();
+                JsonNode preguntas = startBody.path("preguntas");
+                assertThat(preguntas.size()).isEqualTo(2);
+
+                String submitPayload = "{" +
+                                "\"intentoId\":" + intentoId + "," +
+                                "\"respuestas\":[" +
+                                "{\"preguntaId\":" + preguntas.get(0).path("id").asLong() + ",\"respuesta\":\"A\"}," +
+                                "{\"preguntaId\":" + preguntas.get(1).path("id").asLong() + ",\"respuesta\":\"B\"}" +
+                                "]}";
+
+                ResponseEntity<String> submitResponse = rest.postForEntity(
+                                "/api/intentos/enviar",
+                                new HttpEntity<>(submitPayload, headers),
+                                String.class);
+                assertThat(submitResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                ResponseEntity<String> reviewResponse = rest.postForEntity(
+                                "/api/intentos/revisar",
+                                new HttpEntity<>(startPayload, headers),
+                                String.class);
+                assertThat(reviewResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                JsonNode reviewBody = objectMapper.readTree(reviewResponse.getBody());
+                assertThat(reviewBody.path("intentoId").asLong()).isEqualTo(intentoId);
+                assertThat(reviewBody.path("estado").asText()).isEqualTo("SUBMITTED");
+                assertThat(reviewBody.path("resultado").path("correctas").asInt()).isEqualTo(2);
+                assertThat(reviewBody.path("correccion").isArray()).isTrue();
+                assertThat(reviewBody.path("correccion").size()).isEqualTo(2);
+        }
+
+        @Test
+        void blockedAttemptCanBeReopenedOnlyOnceAndThenForceSubmitted() throws Exception {
+                long docenteId = createDocente("Doc" + UUID.randomUUID());
+                long estudianteId = createEstudiante("Est" + UUID.randomUUID());
+
+                long materiaId = firstIdFromList("/api/materias");
+                long periodoId = firstIdFromList("/api/periodos");
+                long momentoId = firstIdFromList("/api/momentos");
+
+                ResponseEntity<String> linkResponse = rest.exchange(
+                                "/api/materias/{materiaId}/docentes/{docenteId}",
+                                HttpMethod.PUT,
+                                HttpEntity.EMPTY,
+                                String.class,
+                                materiaId,
+                                docenteId);
+                assertThat(linkResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                String ensurePayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"beneficio\":false" +
+                                "}";
+                ResponseEntity<String> ensureResponse = rest.postForEntity(
+                                "/api/examenes/asegurar",
+                                new HttpEntity<>(ensurePayload, headers),
+                                String.class);
+                assertThat(ensureResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                loadExamBank(periodoId, materiaId, momentoId, docenteId, 2);
+
+                String startPayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"estudianteId\":" + estudianteId + "," +
+                                "\"cantidad\":2" +
+                                "}";
+
+                ResponseEntity<String> startResponse = rest.postForEntity(
+                                "/api/intentos/iniciar",
+                                new HttpEntity<>(startPayload, headers),
+                                String.class);
+                assertThat(startResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                long intentoId = objectMapper.readTree(startResponse.getBody()).path("intentoId").asLong();
+
+                ResponseEntity<String> blockResponse = rest.postForEntity(
+                                "/api/intentos/{intentoId}/anticheat/block",
+                                new HttpEntity<>("{}", headers),
+                                String.class,
+                                intentoId);
+                assertThat(blockResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+                assertThat(objectMapper.readTree(blockResponse.getBody()).path("estado").asText()).isEqualTo("BLOCKED");
+
+                ResponseEntity<String> reopenResponse = rest.postForEntity(
+                                "/api/intentos/{intentoId}/reabrir",
+                                new HttpEntity<>("{\"extraMinutes\":5}", headers),
+                                String.class,
+                                intentoId);
+                assertThat(reopenResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+                JsonNode reopenBody = objectMapper.readTree(reopenResponse.getBody());
+                assertThat(reopenBody.path("estado").asText()).isEqualTo("IN_PROGRESS");
+                assertThat(reopenBody.path("reopenCount").asInt()).isEqualTo(1);
+                assertThat(reopenBody.path("extraMinutesTotal").asInt()).isEqualTo(5);
+
+                ResponseEntity<String> reblockResponse = rest.postForEntity(
+                                "/api/intentos/{intentoId}/anticheat/block",
+                                new HttpEntity<>("{}", headers),
+                                String.class,
+                                intentoId);
+                assertThat(reblockResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+                assertThat(objectMapper.readTree(reblockResponse.getBody()).path("estado").asText())
+                                .isEqualTo("BLOCKED");
+
+                ResponseEntity<String> secondReopenResponse = rest.postForEntity(
+                                "/api/intentos/{intentoId}/reabrir",
+                                new HttpEntity<>("{\"extraMinutes\":5}", headers),
+                                String.class,
+                                intentoId);
+                assertThat(secondReopenResponse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+                ResponseEntity<String> forceSubmitResponse = rest.postForEntity(
+                                "/api/intentos/{intentoId}/force-submit",
+                                new HttpEntity<>("{}", headers),
+                                String.class,
+                                intentoId);
+                assertThat(forceSubmitResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+                assertThat(objectMapper.readTree(forceSubmitResponse.getBody()).path("estado").asText())
+                                .isEqualTo("SUBMITTED");
+        }
+
+        @Test
+        void deleteAttemptRemovesNonSubmittedAttempt() throws Exception {
+                long docenteId = createDocente("Doc" + UUID.randomUUID());
+                long estudianteId = createEstudiante("Est" + UUID.randomUUID());
+
+                long materiaId = firstIdFromList("/api/materias");
+                long periodoId = firstIdFromList("/api/periodos");
+                long momentoId = firstIdFromList("/api/momentos");
+
+                ResponseEntity<String> linkResponse = rest.exchange(
+                                "/api/materias/{materiaId}/docentes/{docenteId}",
+                                HttpMethod.PUT,
+                                HttpEntity.EMPTY,
+                                String.class,
+                                materiaId,
+                                docenteId);
+                assertThat(linkResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                String ensurePayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"beneficio\":false" +
+                                "}";
+                ResponseEntity<String> ensureResponse = rest.postForEntity(
+                                "/api/examenes/asegurar",
+                                new HttpEntity<>(ensurePayload, headers),
+                                String.class);
+                assertThat(ensureResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                loadExamBank(periodoId, materiaId, momentoId, docenteId, 2);
+
+                String startPayload = "{" +
+                                "\"periodoId\":" + periodoId + "," +
+                                "\"materiaId\":" + materiaId + "," +
+                                "\"momentoId\":" + momentoId + "," +
+                                "\"docenteResponsableId\":" + docenteId + "," +
+                                "\"estudianteId\":" + estudianteId + "," +
+                                "\"cantidad\":2" +
+                                "}";
+
+                ResponseEntity<String> startResponse = rest.postForEntity(
+                                "/api/intentos/iniciar",
+                                new HttpEntity<>(startPayload, headers),
+                                String.class);
+                assertThat(startResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                long intentoId = objectMapper.readTree(startResponse.getBody()).path("intentoId").asLong();
+
+                ResponseEntity<Void> deleteResponse = rest.exchange(
+                                "/api/intentos/{intentoId}",
+                                HttpMethod.DELETE,
+                                HttpEntity.EMPTY,
+                                Void.class,
+                                intentoId);
+                assertThat(deleteResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+                ResponseEntity<String> detailResponse = rest.getForEntity(
+                                "/api/intentos/{intentoId}",
+                                String.class,
+                                intentoId);
+                assertThat(detailResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
         private long firstIdFromList(String path) throws Exception {
                 ResponseEntity<String> response = rest.getForEntity(path, String.class);
                 assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
