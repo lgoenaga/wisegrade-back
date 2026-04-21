@@ -21,6 +21,64 @@ Si necesitas crear DB/usuario local, existe un script de ayuda en el workspace:
 
 - `../db/mysql-local-setup.sql`
 
+### MySQL con Docker (imagen + dump)
+
+Se agregó una imagen de MySQL para desarrollo que:
+
+- crea la DB y el usuario de aplicación,
+- restaura el dump ubicado en `Documents/dump-wisegrade-202604201853.sql`,
+- y usa volumen persistente (`wisegrade_mysql_data`).
+
+Archivos:
+
+- `docker-compose.mysql.yml`
+- `docker/mysql/Dockerfile`
+- `docker/mysql/init/01-import-dump.sh`
+- `scripts/docker-mysql-verify.sh`
+- `.env.docker.example`
+
+Opcional: copiar variables de ejemplo antes de ejecutar compose:
+
+```bash
+cp .env.docker.example .env.docker
+set -a
+source .env.docker
+set +a
+```
+
+Levantar MySQL (con build de imagen):
+
+```bash
+docker compose -f docker-compose.mysql.yml up -d --build
+```
+
+Verificar importación (tablas, conteos clave, Flyway y usuarios):
+
+```bash
+./scripts/docker-mysql-verify.sh
+```
+
+Parar servicio (sin borrar datos):
+
+```bash
+docker compose -f docker-compose.mysql.yml down
+```
+
+Reinicializar desde cero (borra volumen y vuelve a importar dump):
+
+```bash
+docker compose -f docker-compose.mysql.yml down -v
+docker compose -f docker-compose.mysql.yml up -d --build
+```
+
+Para conectar el backend contra este MySQL, exporta las mismas credenciales del compose:
+
+```bash
+export DB_URL='jdbc:mysql://localhost:3306/wisegrade?useSSL=false&allowPublicKeyRetrieval=true'
+export DB_USER='wisegrade_app'
+export DB_PASSWORD='wisegrade_password'
+```
+
 ### Flujo local típico (end-to-end)
 
 1. Levanta MySQL y crea la DB/usuario.

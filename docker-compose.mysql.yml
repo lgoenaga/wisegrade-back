@@ -1,0 +1,26 @@
+services:
+  mysql:
+    build:
+      context: .
+      dockerfile: docker/mysql/Dockerfile
+    container_name: wisegrade-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_wisegrade}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-wisegrade}
+      MYSQL_USER: ${MYSQL_USER:-wisegrade_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wisegrade_password}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - wisegrade_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+volumes:
+  wisegrade_mysql_data:
+

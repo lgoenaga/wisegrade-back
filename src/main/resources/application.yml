@@ -1,6 +1,6 @@
 spring:
   application:
-    name: wisegrade-back
+    name: wisegrade-spring
 
   profiles:
     active: dev
@@ -13,4 +13,4 @@ server:
 
 app:
   exam:
-    duration-minutes: ${APP_EXAM_DURATION_MINUTES:30}
+    duration-minutes: ${APP_EXAM_DURATION_MINUTES:90}

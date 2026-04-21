@@ -11,9 +11,9 @@
     </parent>
 
     <groupId>com.wisegrade</groupId>
-    <artifactId>wisegrade-back</artifactId>
+    <artifactId>wisegrade-spring</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>wisegrade-back</name>
+    <name>wisegrade-spring</name>
     <description>WiseGrade backend (Spring Boot)</description>
 
     <properties>
